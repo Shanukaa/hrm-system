@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  color: #14213d;
+}
+
+.font-nums {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Perforated "tear-off stub" divider — the signature motif, used sparingly */
+.stub-divider {
+  border-top: 1.5px dashed #c9c9c3;
+  position: relative;
+}
+.stub-divider::before,
+.stub-divider::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f7f7f5;
+  border: 1.5px solid #c9c9c3;
+}
+.stub-divider::before {
+  left: -7px;
+}
+.stub-divider::after {
+  right: -7px;
+}
+
+::selection {
+  background: #2a6f63;
+  color: white;
+}

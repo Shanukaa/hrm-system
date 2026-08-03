@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: hrm-payroll-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: SPREADSHEET_ID
+        sync: false
+      - key: SHEET_NAME
+        value: Payroll
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/service-account.json
+      - key: CORS_ORIGIN
+        sync: false
+      - key: COMPANY_NAME
+        sync: false
+      - key: COMPANY_ADDRESS
+        sync: false
+      - key: COMPANY_LOGO_PATH
+        value: /etc/secrets/logo.png
+      - key: PORT
+        value: 4000
