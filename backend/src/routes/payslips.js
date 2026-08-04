@@ -4,8 +4,12 @@ import { getAllEmployees, getEmployeeByEmpNo } from "../services/sheetsService.j
 import { generatePayslipPdf } from "../services/pdfService.js";
 import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
+import { addLog } from "../services/logService.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
+
+router.use(requireAuth);
 
 router.get("/:empNo", async (req, res, next) => {
   try {
@@ -17,6 +21,13 @@ router.get("/:empNo", async (req, res, next) => {
       "Content-Disposition",
       `attachment; filename="payslip-${employee.empNo}-${(req.query.period || "current").replace(/\s+/g, "_")}.pdf"`
     );
+    await addLog({
+      userEmail: req.user.email,
+      userRole: req.user.role,
+      action: "payslip_generated",
+      details: `Generated payslip for ${employee.empNo}`,
+      ip: req.ip,
+    });
     generatePayslipPdf(employee, res, req.query.period);
   } catch (err) {
     next(err);

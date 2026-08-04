@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { money } from "../api/fields";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function EmployeeTable({
   employees,
@@ -9,6 +10,8 @@ export default function EmployeeTable({
   onDelete,
   onDownloadPayslip,
 }) {
+  const { user } = useAuth();
+  const canDelete = user?.role === "admin" || user?.role === "hr_manager";
   if (employees.length === 0) {
     return (
       <div className="border border-dashed border-line rounded-lg py-16 text-center bg-surface">
@@ -70,13 +73,15 @@ export default function EmployeeTable({
                     >
                       Edit
                     </Link>
-                    <button
-                      onClick={() => onDelete(e.empNo)}
-                      title="Delete"
-                      className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-alert hover:text-alert transition-colors"
-                    >
-                      Delete
-                    </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => onDelete(e.empNo)}
+                        title="Delete"
+                        className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-alert hover:text-alert transition-colors"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

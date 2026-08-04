@@ -4,9 +4,13 @@ import XLSX from "xlsx";
 import { upsertEmployees } from "../services/sheetsService.js";
 import { calculatePayroll } from "../services/payrollCalc.js";
 import { COLUMNS } from "../config/columns.js";
+import { addLog } from "../services/logService.js";
+import { requireAuth, requirePermission } from "../middleware/auth.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const router = Router();
+
+router.use(requireAuth, requirePermission("import", undefined));
 
 // Maps flexible header text in the uploaded file -> our internal field key.
 // Matching is case-insensitive and ignores spaces/punctuation, so
@@ -67,6 +71,13 @@ router.post("/", upload.single("file"), async (req, res, next) => {
     }
 
     const result = await upsertEmployees(records);
+    await addLog({
+      userEmail: req.user.email,
+      userRole: req.user.role,
+      action: "employees_imported",
+      details: `Imported file: ${result.created} created, ${result.updated} updated, ${skipped.length} skipped`,
+      ip: req.ip,
+    });
     res.json({ ...result, skipped, totalRows: rawRows.length });
   } catch (err) {
     next(err);
