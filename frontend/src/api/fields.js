@@ -25,6 +25,9 @@ export const FIELDS = [
   { key: "companyEpf12", label: "Company EPF (12%)", type: "number", section: "employer", calculated: true },
   { key: "etf3", label: "ETF 3%", type: "number", section: "employer", calculated: true },
   { key: "costToCompany", label: "Cost to Company", type: "number", section: "employer", calculated: true },
+
+  { key: "bankName", label: "Bank Name", type: "text", section: "banking", editable: true },
+  { key: "bankAccountNo", label: "Bank Account No", type: "text", section: "banking", editable: true },
 ];
 
 const num = (v) => {

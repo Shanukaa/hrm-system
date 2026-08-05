@@ -9,6 +9,7 @@ const SECTIONS = [
   { key: "earnings", title: "Earnings" },
   { key: "deductions", title: "Deductions" },
   { key: "employer", title: "Employer Contributions" },
+  { key: "banking", title: "Bank Details" },
 ];
 
 const emptyForm = Object.fromEntries(FIELDS.map((f) => [f.key, f.type === "number" ? "0" : ""]));

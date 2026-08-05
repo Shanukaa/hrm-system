@@ -9,6 +9,7 @@ export default function Payslips() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(new Set());
   const [period, setPeriod] = useState(currentMonthLabel());
+  const [format, setFormat] = useState("detailed");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function Payslips() {
   const handleBulk = async () => {
     setBusy(true);
     try {
-      await downloadAllPayslips(period, selected.size > 0 ? [...selected] : undefined);
+      await downloadAllPayslips(period, selected.size > 0 ? [...selected] : undefined, format);
     } finally {
       setBusy(false);
     }
@@ -76,6 +77,17 @@ export default function Payslips() {
               className="text-sm border border-line rounded-md px-3 py-2 bg-surface w-40 font-nums focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             />
           </label>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            Format
+            <select
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+              className="text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            >
+              <option value="detailed">Detailed</option>
+              <option value="simple">Simple (bank advice style)</option>
+            </select>
+          </label>
         </div>
 
         {loading ? (
@@ -98,7 +110,7 @@ export default function Payslips() {
                   </div>
                 </div>
                 <button
-                  onClick={() => downloadPayslip(e.empNo, period)}
+                  onClick={() => downloadPayslip(e.empNo, period, format)}
                   className="text-xs px-3 py-1.5 rounded border border-line hover:border-accent hover:text-accent transition-colors"
                 >
                   Download PDF

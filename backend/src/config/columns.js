@@ -30,6 +30,8 @@ export const COLUMNS = [
   { key: "deductions", header: "Deductions", type: "number", editable: true },
   { key: "netSalary", header: "Net Salary", type: "number", calculated: true },
   { key: "costToCompany", header: "Cost to company", type: "number", calculated: true },
+  { key: "bankName", header: "Bank Name", type: "text", editable: true },
+  { key: "bankAccountNo", header: "Bank Account No", type: "text", editable: true },
 ];
 
 export const HEADERS = COLUMNS.map((c) => c.header);

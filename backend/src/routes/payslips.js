@@ -1,7 +1,7 @@
 import { Router } from "express";
 import archiver from "archiver";
 import { getAllEmployees, getEmployeeByEmpNo } from "../services/sheetsService.js";
-import { generatePayslipPdf } from "../services/pdfService.js";
+import { generatePayslipPdf, generateSimplePayslipPdf } from "../services/pdfService.js";
 import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
 import { addLog } from "../services/logService.js";
@@ -16,19 +16,24 @@ router.get("/:empNo", async (req, res, next) => {
     const employee = await getEmployeeByEmpNo(req.params.empNo);
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
+    const isSimple = req.query.format === "simple";
+    const generate = isSimple ? generateSimplePayslipPdf : generatePayslipPdf;
+
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="payslip-${employee.empNo}-${(req.query.period || "current").replace(/\s+/g, "_")}.pdf"`
+      `attachment; filename="payslip-${employee.empNo}-${(req.query.period || "current").replace(/\s+/g, "_")}${
+        isSimple ? "-simple" : ""
+      }.pdf"`
     );
     await addLog({
       userEmail: req.user.email,
       userRole: req.user.role,
       action: "payslip_generated",
-      details: `Generated payslip for ${employee.empNo}`,
+      details: `Generated ${isSimple ? "simple" : "detailed"} payslip for ${employee.empNo}`,
       ip: req.ip,
     });
-    generatePayslipPdf(employee, res, req.query.period);
+    generate(employee, res, req.query.period);
   } catch (err) {
     next(err);
   }
@@ -51,6 +56,9 @@ router.get("/", async (req, res, next) => {
       `attachment; filename="payslips-${(req.query.period || "current").replace(/\s+/g, "_")}.zip"`
     );
 
+    const isSimple = req.query.format === "simple";
+    const generate = isSimple ? generateSimplePayslipPdf : generatePayslipPdf;
+
     const archive = archiver("zip", { zlib: { level: 9 } });
     archive.pipe(res);
 
@@ -61,9 +69,9 @@ router.get("/", async (req, res, next) => {
       await new Promise((resolve, reject) => {
         stream.on("end", resolve);
         stream.on("error", reject);
-        generatePayslipPdf(employee, stream, req.query.period);
+        generate(employee, stream, req.query.period);
       });
-      archive.append(Buffer.concat(chunks), { name: `payslip-${employee.empNo}.pdf` });
+      archive.append(Buffer.concat(chunks), { name: `payslip-${employee.empNo}${isSimple ? "-simple" : ""}.pdf` });
     }
 
     await archive.finalize();

@@ -66,20 +66,24 @@ export const importFile = (file, onUploadProgress) => {
     .then((r) => r.data);
 };
 
-export const downloadPayslip = async (empNo, period) => {
+export const downloadPayslip = async (empNo, period, format) => {
   const res = await api.get(`/payslips/${encodeURIComponent(empNo)}`, {
-    params: period ? { period } : {},
+    params: { ...(period ? { period } : {}), ...(format ? { format } : {}) },
     responseType: "blob",
   });
-  triggerDownload(res.data, `payslip-${empNo}.pdf`);
+  triggerDownload(res.data, `payslip-${empNo}${format === "simple" ? "-simple" : ""}.pdf`);
 };
 
-export const downloadAllPayslips = async (period, empNos) => {
+export const downloadAllPayslips = async (period, empNos, format) => {
   const res = await api.get(`/payslips`, {
-    params: { ...(period ? { period } : {}), ...(empNos ? { empNos: empNos.join(",") } : {}) },
+    params: {
+      ...(period ? { period } : {}),
+      ...(empNos ? { empNos: empNos.join(",") } : {}),
+      ...(format ? { format } : {}),
+    },
     responseType: "blob",
   });
-  triggerDownload(res.data, `payslips.zip`);
+  triggerDownload(res.data, `payslips${format === "simple" ? "-simple" : ""}.zip`);
 };
 
 function triggerDownload(blob, filename) {

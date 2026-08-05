@@ -39,6 +39,128 @@ export function generatePayslipPdf(employee, res, period) {
   doc.end();
 }
 
+/**
+ * Streams a single employee's payslip in the simplified "bank advice" style
+ * (Process Month / EARNINGS / DEDUCTIONS / NET SALARY / EPF & ETF / bank
+ * credit line) alongside the detailed one above. Uses the same underlying
+ * salary fields — no separate data entry needed.
+ */
+export function generateSimplePayslipPdf(employee, res, period) {
+  const doc = new PDFDocument({ size: "A4", margin: 40 });
+  doc.pipe(res);
+
+  drawLetterhead(doc);
+
+  const y0 = 118;
+  doc
+    .fillColor(INK)
+    .font("Helvetica-Bold")
+    .fontSize(11)
+    .text(`Process Month : ${simplePeriodLabel(period)}`, 40, y0);
+
+  let y = y0 + 34;
+
+  const earningsRows = [
+    ["BASIC SALARY", employee.basicSalary],
+    ["OPERATIONAL ALLOWANCE", employee.operationalAllowance],
+    ["ATTENDANCE ALLOWANCE", employee.attendanceAllowance],
+    ["TARGET ALLOWANCE", employee.targetAllowance],
+    ["TOTAL OT PAY", employee.totalOtPay],
+  ].filter(([, v]) => Number(v || 0) !== 0);
+  if (earningsRows.length === 0) earningsRows.push(["BASIC SALARY", employee.basicSalary]);
+
+  const deductionRows = [
+    ["EPF EMPLOYEE CONTRIBUTION (8%)", employee.employeeEpf8],
+    ["APIT", employee.apit],
+    ["OTHER DEDUCTIONS", employee.deductions],
+  ].filter(([, v]) => Number(v || 0) !== 0);
+
+  const totalDeduction =
+    Number(employee.employeeEpf8 || 0) + Number(employee.apit || 0) + Number(employee.deductions || 0);
+  const totalEpfContribution =
+    Number(employee.employeeEpf8 || 0) + Number(employee.companyEpf12 || 0) + Number(employee.etf3 || 0);
+
+  doc.fillColor(INK).font("Helvetica-Bold").fontSize(10).text("EARNINGS - - - - - - - - - >", 40, y);
+  y += 20;
+  earningsRows.forEach(([label, value]) => {
+    doc.font("Helvetica").fontSize(9.5).fillColor(INK).text(label, 60, y, { width: 300 });
+    doc.text(money(value), 400, y, { width: 115, align: "right" });
+    y += 18;
+  });
+  y += 6;
+  doc.moveTo(400, y).lineTo(515, y).dash(2, { space: 2 }).strokeColor(LINE).lineWidth(1).stroke();
+  doc.undash();
+  y += 4;
+  doc.font("Helvetica-Bold").fillColor(INK).text("TOTAL EARNINGS", 60, y, { width: 300 });
+  doc.text(money(employee.grossSalary), 400, y, { width: 115, align: "right" });
+  y += 34;
+
+  doc.fillColor(INK).font("Helvetica-Bold").fontSize(10).text("DEDUCTIONS - - - - - - - - - >", 40, y);
+  y += 20;
+  if (deductionRows.length === 0) {
+    doc.font("Helvetica").fontSize(9.5).fillColor(MUTED).text("No deductions this period", 60, y);
+    y += 18;
+  } else {
+    deductionRows.forEach(([label, value]) => {
+      doc.font("Helvetica").fontSize(9.5).fillColor(INK).text(label, 60, y, { width: 300 });
+      doc.text(money(value), 400, y, { width: 115, align: "right" });
+      y += 18;
+    });
+  }
+  y += 6;
+  doc.moveTo(400, y).lineTo(515, y).dash(2, { space: 2 }).strokeColor(LINE).lineWidth(1).stroke();
+  doc.undash();
+  y += 4;
+  doc.font("Helvetica-Bold").fillColor(INK).text("TOTAL DEDUCTION", 60, y, { width: 300 });
+  doc.text(money(totalDeduction), 400, y, { width: 115, align: "right" });
+  y += 34;
+
+  doc.moveTo(400, y).lineTo(515, y).strokeColor(INK).lineWidth(1.2).stroke();
+  y += 3;
+  doc.moveTo(400, y).lineTo(515, y).strokeColor(INK).lineWidth(1.2).stroke();
+  y += 8;
+  doc.font("Helvetica-Bold").fontSize(11).fillColor(ACCENT).text("NET SALARY", 60, y, { width: 300 });
+  doc.text(money(employee.netSalary), 400, y, { width: 115, align: "right" });
+  y += 36;
+
+  const employerRows = [
+    ["EPF COMPANY CONTRIBUTION", employee.companyEpf12],
+    ["ETF COMPANY CONTRIBUTION", employee.etf3],
+    ["TOTAL EPF CONTRIBUTION", totalEpfContribution],
+    ["COST TO THE COMPANY", employee.costToCompany],
+  ];
+  doc.font("Helvetica").fontSize(9.5);
+  employerRows.forEach(([label, value]) => {
+    doc.fillColor(INK).text(label, 40, y, { width: 300 });
+    doc.text(money(value), 400, y, { width: 115, align: "right" });
+    y += 18;
+  });
+  y += 10;
+
+  const bankLabel = employee.bankName ? employee.bankName.toUpperCase() : "BANK NOT SET";
+  const bankDetail = [employee.bankAccountNo].filter(Boolean).join("  ·  ");
+  doc.font("Helvetica-Bold").fontSize(9.5).fillColor(INK).text(bankLabel, 40, y, { width: 240 });
+  if (bankDetail) {
+    doc.font("Helvetica").fillColor(MUTED).text(bankDetail, 40, y + 15, { width: 240 });
+  }
+  doc.font("Helvetica").fillColor(MUTED).text("<- - Credited", 400, y + (bankDetail ? 4 : 0), { width: 115 });
+
+  doc.end();
+}
+
+function simplePeriodLabel(period) {
+  if (period) {
+    // Accept "2026 / July" style or a normal month label and normalize to "YYYY / Month".
+    const parsed = new Date(period);
+    if (!isNaN(parsed)) {
+      return `${parsed.getFullYear()} / ${parsed.toLocaleDateString("en-LK", { month: "long" })}`;
+    }
+    return period;
+  }
+  const now = new Date();
+  return `${now.getFullYear()} / ${now.toLocaleDateString("en-LK", { month: "long" })}`;
+}
+
 function drawLetterhead(doc) {
   const top = 40;
   if (COMPANY_LOGO_PATH && fs.existsSync(COMPANY_LOGO_PATH)) {
