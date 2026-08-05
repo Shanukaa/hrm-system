@@ -62,18 +62,19 @@ export function generateSimplePayslipPdf(employee, res, period) {
 
   const earningsRows = [
     ["BASIC SALARY", employee.basicSalary],
+    ["NOPAY AMOUNT", -Math.abs(Number(employee.nopayAmount || 0))],
+    ["ADJUSTED BASIC", employee.adjustedBasic],
     ["OPERATIONAL ALLOWANCE", employee.operationalAllowance],
     ["ATTENDANCE ALLOWANCE", employee.attendanceAllowance],
     ["TARGET ALLOWANCE", employee.targetAllowance],
     ["TOTAL OT PAY", employee.totalOtPay],
-  ].filter(([, v]) => Number(v || 0) !== 0);
-  if (earningsRows.length === 0) earningsRows.push(["BASIC SALARY", employee.basicSalary]);
+  ];
 
   const deductionRows = [
     ["EPF EMPLOYEE CONTRIBUTION (8%)", employee.employeeEpf8],
     ["APIT", employee.apit],
     ["OTHER DEDUCTIONS", employee.deductions],
-  ].filter(([, v]) => Number(v || 0) !== 0);
+  ];
 
   const totalDeduction =
     Number(employee.employeeEpf8 || 0) + Number(employee.apit || 0) + Number(employee.deductions || 0);
