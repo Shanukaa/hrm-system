@@ -58,7 +58,32 @@ export function generateSimplePayslipPdf(employee, res, period) {
     .fontSize(11)
     .text(`Process Month : ${simplePeriodLabel(period)}`, 40, y0);
 
-  let y = y0 + 34;
+  let y = y0 + 28;
+
+  const idLeft = [
+    ["Employee", employee.employeeName],
+    ["EMP No", employee.empNo],
+    ["Designation", employee.designation],
+  ];
+  const idRight = [
+    ["Cost Centre", employee.costCentre],
+    ["NIC No", employee.nicNo],
+    ["EPF No", employee.epfNo],
+  ];
+  doc.font("Helvetica").fontSize(9.5);
+  idLeft.forEach(([label, value], i) => {
+    doc.fillColor(MUTED).text(label, 40, y + i * 15, { width: 90 });
+    doc.fillColor(INK).font("Helvetica-Bold").text(value || "-", 130, y + i * 15, { width: 170 });
+    doc.font("Helvetica");
+  });
+  idRight.forEach(([label, value], i) => {
+    doc.fillColor(MUTED).text(label, 320, y + i * 15, { width: 80 });
+    doc.fillColor(INK).font("Helvetica-Bold").text(value || "-", 400, y + i * 15, { width: 115 });
+    doc.font("Helvetica");
+  });
+  y += 15 * 3 + 14;
+  doc.moveTo(40, y).lineTo(515, y).strokeColor(LINE).lineWidth(1).stroke();
+  y += 18;
 
   const earningsRows = [
     ["BASIC SALARY", employee.basicSalary],
