@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import logo from "../assets/logo.png";
 
 const ROLE_LABELS = { admin: "Admin", hr_manager: "HR Manager", hr_executive: "HR Executive" };
 
@@ -25,14 +26,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 shrink-0 bg-ink text-white flex flex-col min-h-screen">
       <div className="px-6 py-7 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-accent flex items-center justify-center font-display font-bold text-sm">
-            P
-          </div>
-          <div>
-            <p className="font-display text-lg leading-none">Payroll</p>
-            <p className="text-[11px] text-white/50 tracking-wide mt-0.5">LEDGER SYSTEM</p>
-          </div>
+        <div className="bg-white rounded-md px-3 py-2.5 inline-block">
+          <img src={logo} alt="HairSkiin Sri Lanka" className="h-8 w-auto object-contain" />
         </div>
       </div>
 

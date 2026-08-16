@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import logo from "../assets/logo.png";
 
 export default function Login() {
   const { login } = useAuth();
@@ -30,17 +31,11 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2.5 justify-center mb-8">
-          <div className="w-9 h-9 rounded bg-accent flex items-center justify-center font-display font-bold text-white">
-            P
-          </div>
-          <div className="text-left">
-            <p className="font-display text-xl leading-none text-ink">Payroll</p>
-            <p className="text-[11px] text-muted tracking-wide mt-0.5">LEDGER SYSTEM</p>
-          </div>
+        <div className="flex items-center justify-center mb-8 animate-fade-in-up">
+          <img src={logo} alt="HairSkiin Sri Lanka" className="h-12 w-auto object-contain" />
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-lg p-7 space-y-4 shadow-sm">
+        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-lg p-7 space-y-4 shadow-sm animate-fade-in-up" style={{ animationDelay: "80ms" }}>
           <div>
             <h1 className="font-display text-lg text-ink mb-1">Sign in</h1>
             <p className="text-sm text-muted">Enter your account details to continue.</p>

@@ -109,7 +109,7 @@ export default function Dashboard() {
         )}
 
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 [&>*:nth-child(1)]:[animation-delay:0ms] [&>*:nth-child(2)]:[animation-delay:60ms] [&>*:nth-child(3)]:[animation-delay:120ms] [&>*:nth-child(4)]:[animation-delay:180ms]">
             <StatCard label="Employees" value={summary.employeeCount} />
             <StatCard label="Total Gross Salary" value={money(summary.totalGrossSalary)} />
             <StatCard label="Total Net Salary" value={money(summary.totalNetSalary)} accent />

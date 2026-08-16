@@ -8,9 +8,9 @@ const COMPANY_NAME = process.env.COMPANY_NAME || "Your Company (Pvt) Ltd";
 const COMPANY_ADDRESS = process.env.COMPANY_ADDRESS || "";
 const COMPANY_LOGO_PATH = process.env.COMPANY_LOGO_PATH || "";
 
-const INK = "#14213D";
-const ACCENT = "#2A6F63";
-const LINE = "#D8D8D3";
+const INK = "#161C27";
+const ACCENT = "#A8813C";
+const LINE = "#DCD5C7";
 const MUTED = "#6B7280";
 
 const money = (n) =>
@@ -85,24 +85,37 @@ export function generateSimplePayslipPdf(employee, res, period) {
   doc.moveTo(40, y).lineTo(515, y).strokeColor(LINE).lineWidth(1).stroke();
   y += 18;
 
+  const STAMP_DUTY = 25;
+
   const earningsRows = [
     ["BASIC SALARY", employee.basicSalary],
-    ["NOPAY AMOUNT", -Math.abs(Number(employee.nopayAmount || 0))],
-    ["ADJUSTED BASIC", employee.adjustedBasic],
     ["OPERATIONAL ALLOWANCE", employee.operationalAllowance],
     ["ATTENDANCE ALLOWANCE", employee.attendanceAllowance],
     ["TARGET ALLOWANCE", employee.targetAllowance],
     ["TOTAL OT PAY", employee.totalOtPay],
   ];
+  const totalEarnings =
+    Number(employee.basicSalary || 0) +
+    Number(employee.operationalAllowance || 0) +
+    Number(employee.attendanceAllowance || 0) +
+    Number(employee.targetAllowance || 0) +
+    Number(employee.totalOtPay || 0);
 
   const deductionRows = [
+    ["NOPAY AMOUNT", employee.nopayAmount],
+    ["STAMP DUTY", STAMP_DUTY],
     ["EPF EMPLOYEE CONTRIBUTION (8%)", employee.employeeEpf8],
     ["APIT", employee.apit],
     ["OTHER DEDUCTIONS", employee.deductions],
   ];
 
   const totalDeduction =
-    Number(employee.employeeEpf8 || 0) + Number(employee.apit || 0) + Number(employee.deductions || 0);
+    Number(employee.nopayAmount || 0) +
+    STAMP_DUTY +
+    Number(employee.employeeEpf8 || 0) +
+    Number(employee.apit || 0) +
+    Number(employee.deductions || 0);
+  const netSalarySimple = totalEarnings - totalDeduction;
   const totalEpfContribution =
     Number(employee.employeeEpf8 || 0) + Number(employee.companyEpf12 || 0) + Number(employee.etf3 || 0);
 
@@ -118,21 +131,16 @@ export function generateSimplePayslipPdf(employee, res, period) {
   doc.undash();
   y += 4;
   doc.font("Helvetica-Bold").fillColor(INK).text("TOTAL EARNINGS", 60, y, { width: 300 });
-  doc.text(money(employee.grossSalary), 400, y, { width: 115, align: "right" });
+  doc.text(money(totalEarnings), 400, y, { width: 115, align: "right" });
   y += 34;
 
   doc.fillColor(INK).font("Helvetica-Bold").fontSize(10).text("DEDUCTIONS - - - - - - - - - >", 40, y);
   y += 20;
-  if (deductionRows.length === 0) {
-    doc.font("Helvetica").fontSize(9.5).fillColor(MUTED).text("No deductions this period", 60, y);
+  deductionRows.forEach(([label, value]) => {
+    doc.font("Helvetica").fontSize(9.5).fillColor(INK).text(label, 60, y, { width: 300 });
+    doc.text(money(value), 400, y, { width: 115, align: "right" });
     y += 18;
-  } else {
-    deductionRows.forEach(([label, value]) => {
-      doc.font("Helvetica").fontSize(9.5).fillColor(INK).text(label, 60, y, { width: 300 });
-      doc.text(money(value), 400, y, { width: 115, align: "right" });
-      y += 18;
-    });
-  }
+  });
   y += 6;
   doc.moveTo(400, y).lineTo(515, y).dash(2, { space: 2 }).strokeColor(LINE).lineWidth(1).stroke();
   doc.undash();
@@ -146,7 +154,7 @@ export function generateSimplePayslipPdf(employee, res, period) {
   doc.moveTo(400, y).lineTo(515, y).strokeColor(INK).lineWidth(1.2).stroke();
   y += 8;
   doc.font("Helvetica-Bold").fontSize(11).fillColor(ACCENT).text("NET SALARY", 60, y, { width: 300 });
-  doc.text(money(employee.netSalary), 400, y, { width: 115, align: "right" });
+  doc.text(money(netSalarySimple), 400, y, { width: 115, align: "right" });
   y += 36;
 
   const employerRows = [

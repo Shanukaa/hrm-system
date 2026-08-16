@@ -4,20 +4,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#14213D",
-        paper: "#F7F7F5",
-        accent: "#2A6F63",
-        accentSoft: "#E4EFEC",
-        line: "#DEDEDA",
+        ink: "#161C27",
+        paper: "#EEF0F1",
+        accent: "#A8813C",
+        accentSoft: "#F2E8D5",
+        line: "#E0E2E4",
         alert: "#B3541E",
         alertSoft: "#F5E6DC",
         muted: "#6B7280",
         surface: "#FFFFFF",
       },
       fontFamily: {
-        display: ["'Source Serif 4'", "Georgia", "serif"],
+        display: ["'Poppins'", "system-ui", "sans-serif"],
         body: ["'Inter'", "system-ui", "sans-serif"],
         mono: ["'IBM Plex Mono'", "ui-monospace", "monospace"],
+      },
+      keyframes: {
+        fadeInUp: {
+          "0%": { opacity: "0", transform: "translateY(6px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "fade-in-up": "fadeInUp 0.35s ease-out both",
       },
     },
   },

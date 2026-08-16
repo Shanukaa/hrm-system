@@ -4,7 +4,7 @@
 
 body {
   font-family: "Inter", system-ui, sans-serif;
-  color: #14213d;
+  color: #161c27;
 }
 
 .font-nums {
@@ -14,7 +14,7 @@ body {
 
 /* Perforated "tear-off stub" divider — the signature motif, used sparingly */
 .stub-divider {
-  border-top: 1.5px dashed #c9c9c3;
+  border-top: 1.5px dashed #d8cdb2;
   position: relative;
 }
 .stub-divider::before,
@@ -25,8 +25,8 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #f7f7f5;
-  border: 1.5px solid #c9c9c3;
+  background: #eef0f1;
+  border: 1.5px solid #d8cdb2;
 }
 .stub-divider::before {
   left: -7px;
@@ -36,6 +36,24 @@ body {
 }
 
 ::selection {
-  background: #2a6f63;
+  background: #a8813c;
   color: white;
+}
+
+/* Subtle lift on interactive cards — kept understated per one signature motif */
+.card-lift {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -8px rgba(22, 28, 39, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }
