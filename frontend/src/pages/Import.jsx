@@ -116,7 +116,7 @@ export default function Import() {
             Basic Salary, Operational Allowance, Attendance Allowance, Target Allowance, Nopay Amount,
             OT Pay, Apit, Deductions, etc.). Calculated fields like Adjusted Basic, Gross Salary, EPF, ETF
             and Net Salary are re-computed automatically on import, so you don't need to include them.
-            Rows are matched to existing employees by EMP NO — matching rows update the existing record,
+            Rows are matched to existing employees by EMP NO - matching rows update the existing record,
             new EMP NOs are added as new rows.
           </p>
         </div>
