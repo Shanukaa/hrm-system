@@ -1,65 +1,55 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { getSheetsClient, SPREADSHEET_ID } from "../config/sheets.js";
-import { ensureTabWithHeaders, colLetter } from "./sheetTabHelper.js";
+import pool from "../config/db.js";
 import {
-  USERS_SHEET_NAME,
   ROLES,
   BOOTSTRAP_ADMIN_NAME,
   BOOTSTRAP_ADMIN_EMAIL,
   BOOTSTRAP_ADMIN_PASSWORD,
 } from "../config/auth.js";
 
-// id | name | email | passwordHash | role | active | createdAt | createdBy
-const HEADERS = ["id", "name", "email", "passwordHash", "role", "active", "createdAt", "createdBy"];
-const RANGE_ALL = `${USERS_SHEET_NAME}!A2:${colLetter(HEADERS.length)}`;
+const TABLE = "users";
 
-export async function ensureUsersSheet() {
-  await ensureTabWithHeaders(USERS_SHEET_NAME, HEADERS);
+/** Creates the users table if it doesn't exist yet. Safe to call on every startup. */
+export async function ensureUsersTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${TABLE} (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      passwordHash VARCHAR(255) NOT NULL,
+      role VARCHAR(32) NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      createdBy VARCHAR(255)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 }
 
-function rowToUser(row, i) {
-  return {
-    id: row[0] || "",
-    name: row[1] || "",
-    email: row[2] || "",
-    passwordHash: row[3] || "",
-    role: row[4] || "",
-    active: row[5] !== "false",
-    createdAt: row[6] || "",
-    createdBy: row[7] || "",
-    _row: i + 2,
-  };
-}
-
-function userRowArray(u) {
-  return [u.id, u.name, u.email, u.passwordHash, u.role, String(u.active), u.createdAt, u.createdBy];
+function normalizeRow(row) {
+  return { ...row, active: !!row.active };
 }
 
 /** Returns all users (including passwordHash — internal use only, never send this to the client as-is). */
 export async function getAllUsersRaw() {
-  const sheets = await getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: RANGE_ALL });
-  const rows = res.data.values || [];
-  return rows
-    .filter((r) => r.some((cell) => cell !== undefined && cell !== ""))
-    .map(rowToUser);
+  const [rows] = await pool.query(`SELECT * FROM ${TABLE} ORDER BY createdAt`);
+  return rows.map(normalizeRow);
 }
 
 /** Strips sensitive fields for anything sent to the frontend. */
 export function toPublicUser(u) {
-  const { passwordHash, _row, ...rest } = u;
+  const { passwordHash, ...rest } = u;
   return rest;
 }
 
 export async function getUserByEmail(email) {
-  const all = await getAllUsersRaw();
-  return all.find((u) => u.email.toLowerCase() === String(email).toLowerCase()) || null;
+  const [rows] = await pool.query(`SELECT * FROM ${TABLE} WHERE email = ? LIMIT 1`, [email]);
+  return rows[0] ? normalizeRow(rows[0]) : null;
 }
 
 export async function getUserById(id) {
-  const all = await getAllUsersRaw();
-  return all.find((u) => u.id === id) || null;
+  const [rows] = await pool.query(`SELECT * FROM ${TABLE} WHERE id = ? LIMIT 1`, [id]);
+  return rows[0] ? normalizeRow(rows[0]) : null;
 }
 
 export async function createUser({ name, email, password, role, createdBy }) {
@@ -90,14 +80,10 @@ export async function createUser({ name, email, password, role, createdBy }) {
     createdAt: new Date().toISOString(),
     createdBy: createdBy || "",
   };
-  const sheets = await getSheetsClient();
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
-    range: RANGE_ALL,
-    valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [userRowArray(user)] },
-  });
+  await pool.query(
+    `INSERT INTO ${TABLE} (id, name, email, passwordHash, role, active, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [user.id, user.name, user.email, user.passwordHash, user.role, true, user.createdBy]
+  );
   return user;
 }
 
@@ -119,45 +105,23 @@ export async function updateUser(id, data) {
   if (data.active !== undefined) updated.active = !!data.active;
   if (data.password) updated.passwordHash = await bcrypt.hash(data.password, 10);
 
-  const sheets = await getSheetsClient();
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${USERS_SHEET_NAME}!A${existing._row}:${colLetter(HEADERS.length)}${existing._row}`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [userRowArray(updated)] },
-  });
+  await pool.query(`UPDATE ${TABLE} SET name = ?, role = ?, active = ?, passwordHash = ? WHERE id = ?`, [
+    updated.name,
+    updated.role,
+    updated.active,
+    updated.passwordHash,
+    id,
+  ]);
   return updated;
 }
 
 export async function deleteUser(id) {
-  const existing = await getUserById(id);
-  if (!existing) {
+  const [result] = await pool.query(`DELETE FROM ${TABLE} WHERE id = ?`, [id]);
+  if (result.affectedRows === 0) {
     const err = new Error("User not found");
     err.status = 404;
     throw err;
   }
-  const sheets = await getSheetsClient();
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-  const sheet = meta.data.sheets.find((s) => s.properties.title === USERS_SHEET_NAME);
-  if (!sheet) throw new Error(`Sheet tab "${USERS_SHEET_NAME}" not found`);
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: SPREADSHEET_ID,
-    requestBody: {
-      requests: [
-        {
-          deleteDimension: {
-            range: {
-              sheetId: sheet.properties.sheetId,
-              dimension: "ROWS",
-              startIndex: existing._row - 1,
-              endIndex: existing._row,
-            },
-          },
-        },
-      ],
-    },
-  });
 }
 
 /**

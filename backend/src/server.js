@@ -10,9 +10,9 @@ import employeesRouter from "./routes/employees.js";
 import importRouter from "./routes/import.js";
 import payslipsRouter from "./routes/payslips.js";
 import dashboardRouter from "./routes/dashboard.js";
-import { ensureHeaders } from "./services/sheetsService.js";
-import { ensureUsersSheet, bootstrapAdminIfNeeded } from "./services/userService.js";
-import { ensureLogsSheet } from "./services/logService.js";
+import { ensureEmployeesTable } from "./services/employeeService.js";
+import { ensureUsersTable, bootstrapAdminIfNeeded } from "./services/userService.js";
+import { ensureLogsTable } from "./services/logService.js";
 
 dotenv.config();
 
@@ -42,21 +42,16 @@ app.use((err, req, res, next) => {
 
 async function start() {
   try {
-    await ensureHeaders();
-  } catch (err) {
-    console.warn(
-      "Warning: could not verify/create the header row automatically. " +
-        "Check SPREADSHEET_ID, SHEET_NAME and that the sheet is shared with the service account. " +
-        err.message
-    );
-  }
-
-  try {
-    await ensureUsersSheet();
-    await ensureLogsSheet();
+    await ensureEmployeesTable();
+    await ensureUsersTable();
+    await ensureLogsTable();
     await bootstrapAdminIfNeeded();
   } catch (err) {
-    console.warn("Warning: could not set up the Users/Logs sheets automatically. " + err.message);
+    console.warn(
+      "Warning: could not set up the database automatically. " +
+        "Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME and that the database is reachable. " +
+        err.message
+    );
   }
 
   app.listen(PORT, () => {

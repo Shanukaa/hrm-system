@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import XLSX from "xlsx";
-import { upsertEmployees } from "../services/sheetsService.js";
+import { upsertEmployees } from "../services/employeeService.js";
 import { calculatePayroll } from "../services/payrollCalc.js";
 import { COLUMNS } from "../config/columns.js";
 import { addLog } from "../services/logService.js";

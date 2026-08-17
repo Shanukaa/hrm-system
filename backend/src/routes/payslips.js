@@ -1,6 +1,6 @@
 import { Router } from "express";
 import archiver from "archiver";
-import { getAllEmployees, getEmployeeByEmpNo } from "../services/sheetsService.js";
+import { getAllEmployees, getEmployeeByEmpNo } from "../services/employeeService.js";
 import { generatePayslipPdf, generateSimplePayslipPdf } from "../services/pdfService.js";
 import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
