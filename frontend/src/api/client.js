@@ -97,4 +97,35 @@ function triggerDownload(blob, filename) {
   window.URL.revokeObjectURL(url);
 }
 
+// --- Leave management ---
+export const getLeavePolicy = () => api.get("/leaves/policy").then((r) => r.data);
+
+export const getLeaveProfile = (empNo) => api.get(`/leaves/profile/${encodeURIComponent(empNo)}`).then((r) => r.data);
+
+export const updateLeaveProfile = (empNo, data) =>
+  api.put(`/leaves/profile/${encodeURIComponent(empNo)}`, data).then((r) => r.data);
+
+export const getLeaveBalance = (empNo) =>
+  api.get("/leaves/balance", { params: empNo ? { empNo } : {} }).then((r) => r.data);
+
+export const previewLeaveDays = (startDate, endDate) =>
+  api.get("/leaves/preview", { params: { startDate, endDate } }).then((r) => r.data);
+
+export const createLeaveRequest = (data) => api.post("/leaves/requests", data).then((r) => r.data);
+
+export const getMyLeaveRequests = (empNo) =>
+  api.get("/leaves/requests/mine", { params: empNo ? { empNo } : {} }).then((r) => r.data);
+
+export const getLeaveNotifications = (empNo) =>
+  api.get("/leaves/notifications", { params: empNo ? { empNo } : {} }).then((r) => r.data);
+
+export const ackLeaveRequest = (id, empNo) =>
+  api.post(`/leaves/requests/${id}/ack`, {}, { params: empNo ? { empNo } : {} }).then((r) => r.data);
+
+export const getAllLeaveRequests = (status) =>
+  api.get("/leaves/requests", { params: status ? { status } : {} }).then((r) => r.data);
+
+export const decideLeaveRequest = (id, decision, note) =>
+  api.put(`/leaves/requests/${id}/decision`, { decision, note }).then((r) => r.data);
+
 export default api;

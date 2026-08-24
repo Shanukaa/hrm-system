@@ -23,10 +23,30 @@ router.get("/", requirePermission("employees", "view"), async (req, res, next) =
   }
 });
 
-router.get("/:empNo", requirePermission("employees", "view"), async (req, res, next) => {
+// Non-sensitive fields shown to an employee/manager viewing their own record
+// via the self-service portal — payroll figures (salary, bank details, etc.)
+// are never exposed here.
+const SELF_VIEW_FIELDS = ["empNo", "epfNo", "employeeName", "nicNo", "designation", "costCentre"];
+
+router.get("/:empNo", async (req, res, next) => {
   try {
+    const isSelf = ["employee", "manager"].includes(req.user.role) && req.user.empNo === req.params.empNo;
+    if (!isSelf) {
+      // Fall back to the normal permission check for HR/admin roles.
+      const { can } = await import("../config/auth.js");
+      if (!can(req.user.role, "employees", "view")) {
+        return res.status(403).json({ error: "You don't have permission to do that" });
+      }
+    }
+
     const employee = await getEmployeeByEmpNo(req.params.empNo);
     if (!employee) return res.status(404).json({ error: "Employee not found" });
+
+    if (isSelf) {
+      const filtered = {};
+      SELF_VIEW_FIELDS.forEach((k) => (filtered[k] = employee[k]));
+      return res.json(filtered);
+    }
     res.json(employee);
   } catch (err) {
     next(err);

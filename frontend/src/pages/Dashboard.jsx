@@ -11,8 +11,11 @@ import {
   downloadAllPayslips,
 } from "../api/client.js";
 import { money } from "../api/fields.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const canSeeLeaves = ["admin", "hr_manager"].includes(user?.role);
   const [employees, setEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -109,11 +112,16 @@ export default function Dashboard() {
         )}
 
         {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 [&>*:nth-child(1)]:[animation-delay:0ms] [&>*:nth-child(2)]:[animation-delay:60ms] [&>*:nth-child(3)]:[animation-delay:120ms] [&>*:nth-child(4)]:[animation-delay:180ms]">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 [&>*:nth-child(1)]:[animation-delay:0ms] [&>*:nth-child(2)]:[animation-delay:60ms] [&>*:nth-child(3)]:[animation-delay:120ms] [&>*:nth-child(4)]:[animation-delay:180ms]">
             <StatCard label="Employees" value={summary.employeeCount} />
             <StatCard label="Total Gross Salary" value={money(summary.totalGrossSalary)} />
             <StatCard label="Total Net Salary" value={money(summary.totalNetSalary)} accent />
             <StatCard label="Total Cost to Company" value={money(summary.totalCostToCompany)} />
+            {canSeeLeaves && (
+              <Link to="/leaves" className="block">
+                <StatCard label="Pending Leave Requests" value={summary.pendingLeaveRequests ?? 0} accent={summary.pendingLeaveRequests > 0} />
+              </Link>
+            )}
           </div>
         )}
 

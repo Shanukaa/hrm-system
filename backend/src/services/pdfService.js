@@ -70,18 +70,29 @@ export function generateSimplePayslipPdf(employee, res, period) {
     ["NIC No", employee.nicNo],
     ["EPF No", employee.epfNo],
   ];
-  doc.font("Helvetica").fontSize(9.5);
+  const LEFT_VALUE_X = 130, LEFT_VALUE_W = 170;
+  const RIGHT_VALUE_X = 400, RIGHT_VALUE_W = 115;
+  const ROW_GAP = 6; // breathing room below the taller of the two columns in a row
+
+  // Measure each row's actual height first (values can wrap onto 2+ lines,
+  // e.g. a long Cost Centre like "Customer service department") so rows
+  // never overlap regardless of content length.
+  doc.font("Helvetica-Bold").fontSize(9.5);
+  const rowHeights = idLeft.map((_, i) => {
+    const leftH = doc.heightOfString(idLeft[i][1] || "-", { width: LEFT_VALUE_W });
+    const rightH = doc.heightOfString(idRight[i][1] || "-", { width: RIGHT_VALUE_W });
+    return Math.max(leftH, rightH, 12) + ROW_GAP;
+  });
+
+  let rowY = y;
   idLeft.forEach(([label, value], i) => {
-    doc.fillColor(MUTED).text(label, 40, y + i * 15, { width: 90 });
-    doc.fillColor(INK).font("Helvetica-Bold").text(value || "-", 130, y + i * 15, { width: 170 });
-    doc.font("Helvetica");
+    doc.fillColor(MUTED).font("Helvetica").fontSize(9.5).text(label, 40, rowY, { width: 90 });
+    doc.fillColor(INK).font("Helvetica-Bold").text(value || "-", LEFT_VALUE_X, rowY, { width: LEFT_VALUE_W });
+    doc.fillColor(MUTED).font("Helvetica").text(idRight[i][0], 320, rowY, { width: 80 });
+    doc.fillColor(INK).font("Helvetica-Bold").text(idRight[i][1] || "-", RIGHT_VALUE_X, rowY, { width: RIGHT_VALUE_W });
+    rowY += rowHeights[i];
   });
-  idRight.forEach(([label, value], i) => {
-    doc.fillColor(MUTED).text(label, 320, y + i * 15, { width: 80 });
-    doc.fillColor(INK).font("Helvetica-Bold").text(value || "-", 400, y + i * 15, { width: 115 });
-    doc.font("Helvetica");
-  });
-  y += 15 * 3 + 14;
+  y = rowY + 8;
   doc.moveTo(40, y).lineTo(515, y).strokeColor(LINE).lineWidth(1).stroke();
   y += 18;
 
@@ -89,6 +100,7 @@ export function generateSimplePayslipPdf(employee, res, period) {
 
   const earningsRows = [
     ["BASIC SALARY", employee.basicSalary],
+    ["ADJUSTED BASIC", employee.adjustedBasic],
     ["OPERATIONAL ALLOWANCE", employee.operationalAllowance],
     ["ATTENDANCE ALLOWANCE", employee.attendanceAllowance],
     ["TARGET ALLOWANCE", employee.targetAllowance],
@@ -197,13 +209,25 @@ function simplePeriodLabel(period) {
 
 function drawLetterhead(doc) {
   const top = 40;
+  // Default slot for a small square/monogram-style logo (placeholder icon case).
+  let textX = 96;
+  let textWidth = 380;
+
   if (COMPANY_LOGO_PATH && fs.existsSync(COMPANY_LOGO_PATH)) {
     try {
-      doc.image(COMPANY_LOGO_PATH, 40, top, { height: 44 });
+      // Company logo is a wide wordmark, not a square icon — constrain by WIDTH
+      // (not height) so it renders at a sane size, and give the name/address
+      // text its own row further right so the two never overlap.
+      const LOGO_WIDTH = 130;
+      doc.image(COMPANY_LOGO_PATH, 40, top, { width: LOGO_WIDTH });
+      textX = 40 + LOGO_WIDTH + 15;
+      textWidth = 555 - textX;
     } catch (e) {
-      /* ignore broken logo file */
+      /* ignore broken logo file, falls through to placeholder below */
     }
-  } else {
+  }
+
+  if (!COMPANY_LOGO_PATH || !fs.existsSync(COMPANY_LOGO_PATH)) {
     // Placeholder logo mark: a simple monogram square so the layout still reads as a letterhead
     doc.roundedRect(40, top, 44, 44, 6).fill(ACCENT);
     doc
@@ -213,17 +237,18 @@ function drawLetterhead(doc) {
       .text(COMPANY_NAME.trim().charAt(0).toUpperCase(), 40, top + 12, { width: 44, align: "center" });
   }
 
+  // Vertically center the name/address block against the logo's height.
   doc
     .fillColor(INK)
     .font("Helvetica-Bold")
     .fontSize(16)
-    .text(COMPANY_NAME, 96, top, { width: 380 });
+    .text(COMPANY_NAME, textX, top + 6, { width: textWidth });
   if (COMPANY_ADDRESS) {
     doc
       .fillColor(MUTED)
       .font("Helvetica")
       .fontSize(9)
-      .text(COMPANY_ADDRESS, 96, top + 20, { width: 380 });
+      .text(COMPANY_ADDRESS, textX, top + 26, { width: textWidth });
   }
 
   doc.moveTo(40, top + 62).lineTo(555, top + 62).strokeColor(LINE).lineWidth(1).stroke();

@@ -1,18 +1,26 @@
 import { useEffect, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
-import { getUsers, createUser, updateUser, deleteUser } from "../api/client.js";
+import { getUsers, createUser, updateUser, deleteUser, getEmployees } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
-const ROLE_LABELS = { admin: "Admin", hr_manager: "HR Manager", hr_executive: "HR Executive" };
+const ROLE_LABELS = {
+  admin: "Admin",
+  hr_manager: "HR Manager",
+  hr_executive: "HR Executive",
+  manager: "Manager",
+  employee: "Employee",
+};
 const ROLES = Object.keys(ROLE_LABELS);
+const EMP_LINKED_ROLES = ["employee", "manager"];
 
 export default function Users() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "hr_executive" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "hr_executive", empNo: "" });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -20,7 +28,9 @@ export default function Users() {
     setLoading(true);
     setError("");
     try {
-      setUsers(await getUsers());
+      const [u, emp] = await Promise.all([getUsers(), getEmployees().catch(() => [])]);
+      setUsers(u);
+      setEmployees(emp);
     } catch (err) {
       setError(err.response?.data?.error || "Could not load users.");
     } finally {
@@ -37,8 +47,9 @@ export default function Users() {
     setFormError("");
     setSaving(true);
     try {
-      await createUser(form);
-      setForm({ name: "", email: "", password: "", role: "hr_executive" });
+      const payload = EMP_LINKED_ROLES.includes(form.role) ? form : { ...form, empNo: "" };
+      await createUser(payload);
+      setForm({ name: "", email: "", password: "", role: "hr_executive", empNo: "" });
       setShowForm(false);
       load();
     } catch (err) {
@@ -134,6 +145,30 @@ export default function Users() {
               </select>
             </div>
 
+            {EMP_LINKED_ROLES.includes(form.role) && (
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-xs font-medium text-muted">Linked employee</label>
+                <select
+                  required
+                  value={form.empNo}
+                  onChange={(e) => setForm({ ...form, empNo: e.target.value })}
+                  className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                >
+                  <option value="">Select an employee…</option>
+                  {employees.map((emp) => (
+                    <option key={emp.empNo} value={emp.empNo}>
+                      {emp.empNo} — {emp.employeeName}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted">
+                  {form.role === "employee"
+                    ? "This account will be able to log in and use the self-service leave portal."
+                    : "This account will review and decide on leave requests as this employee's manager."}
+                </p>
+              </div>
+            )}
+
             {formError && (
               <div className="md:col-span-4 border border-alert/40 bg-alertSoft text-alert text-sm rounded-md px-3.5 py-2.5">
                 {formError}
@@ -161,6 +196,7 @@ export default function Users() {
                 <tr className="border-b border-line text-left text-xs text-muted uppercase tracking-wide">
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">Email</th>
+                  <th className="px-4 py-3 font-medium">Linked Employee</th>
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Created</th>
@@ -172,6 +208,7 @@ export default function Users() {
                   <tr key={u.id} className="border-b border-line last:border-0">
                     <td className="px-4 py-3 text-ink">{u.name}</td>
                     <td className="px-4 py-3 text-muted">{u.email}</td>
+                    <td className="px-4 py-3 text-muted text-xs">{u.empNo || "—"}</td>
                     <td className="px-4 py-3">
                       <select
                         value={u.role}
@@ -218,7 +255,7 @@ export default function Users() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">
+                    <td colSpan={7} className="px-4 py-8 text-center text-muted text-sm">
                       No users yet.
                     </td>
                   </tr>

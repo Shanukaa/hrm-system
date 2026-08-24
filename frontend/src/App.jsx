@@ -1,14 +1,16 @@
 import { Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-import { AuthProvider } from "./context/AuthContext.jsx";
+import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import EmployeeDashboard from "./pages/EmployeeDashboard.jsx";
 import EmployeeForm from "./pages/EmployeeForm.jsx";
 import Import from "./pages/Import.jsx";
 import Payslips from "./pages/Payslips.jsx";
 import Users from "./pages/Users.jsx";
 import Logs from "./pages/Logs.jsx";
+import LeaveApprovals from "./pages/LeaveApprovals.jsx";
 
 export default function App() {
   return (
@@ -28,15 +30,37 @@ export default function App() {
   );
 }
 
+/** Renders the right landing page for "/" based on the signed-in role. */
+function Home() {
+  const { user } = useAuth();
+  if (user?.role === "employee") return <EmployeeDashboard />;
+  if (user?.role === "manager") return <LeaveApprovals />;
+  return <Dashboard />;
+}
+
 function AppShell() {
   return (
     <div className="flex min-h-screen bg-paper">
       <Sidebar />
-      <main className="flex-1 min-w-0">
+      <main className="flex-1 min-w-0 pt-14 lg:pt-0">
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/employees/new" element={<EmployeeForm />} />
-          <Route path="/employees/:empNo/edit" element={<EmployeeForm />} />
+          <Route path="/" element={<Home />} />
+          <Route
+            path="/employees/new"
+            element={
+              <ProtectedRoute roles={["admin", "hr_manager", "hr_executive"]}>
+                <EmployeeForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employees/:empNo/edit"
+            element={
+              <ProtectedRoute roles={["admin", "hr_manager", "hr_executive"]}>
+                <EmployeeForm />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/import"
             element={
@@ -45,7 +69,22 @@ function AppShell() {
               </ProtectedRoute>
             }
           />
-          <Route path="/payslips" element={<Payslips />} />
+          <Route
+            path="/payslips"
+            element={
+              <ProtectedRoute roles={["admin", "hr_manager", "hr_executive"]}>
+                <Payslips />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leaves"
+            element={
+              <ProtectedRoute roles={["admin", "hr_manager", "manager"]}>
+                <LeaveApprovals />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/users"
             element={

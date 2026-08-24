@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import { FIELDS, calculatePayroll, money } from "../api/fields.js";
-import { createEmployee, updateEmployee, getEmployee } from "../api/client.js";
+import { createEmployee, updateEmployee, getEmployee, getLeaveProfile, updateLeaveProfile } from "../api/client.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import LeaveProfileEditor from "../components/LeaveProfileEditor.jsx";
 
 const SECTIONS = [
   { key: "identity", title: "Employee Details" },
@@ -18,11 +20,14 @@ export default function EmployeeForm() {
   const { empNo } = useParams();
   const isEdit = Boolean(empNo);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManageLeaveProfile = ["admin", "hr_manager"].includes(user?.role);
 
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [leaveProfile, setLeaveProfile] = useState(null);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -30,7 +35,18 @@ export default function EmployeeForm() {
       .then((data) => setForm({ ...emptyForm, ...data }))
       .catch(() => setError("Could not load this employee."))
       .finally(() => setLoading(false));
+    if (canManageLeaveProfile) {
+      getLeaveProfile(empNo)
+        .then(setLeaveProfile)
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empNo, isEdit]);
+
+  async function handleLeaveProfileSave(data) {
+    const updated = await updateLeaveProfile(empNo, data);
+    setLeaveProfile(updated);
+  }
 
   const computed = useMemo(() => calculatePayroll(form), [form]);
 
@@ -112,6 +128,10 @@ export default function EmployeeForm() {
                 </div>
               </div>
             ))}
+
+            {isEdit && canManageLeaveProfile && (
+              <LeaveProfileEditor empNo={empNo} profile={leaveProfile} onSave={handleLeaveProfileSave} />
+            )}
           </div>
 
           <div className="lg:col-span-1">

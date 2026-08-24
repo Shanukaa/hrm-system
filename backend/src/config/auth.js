@@ -11,13 +11,18 @@ export const BOOTSTRAP_ADMIN_NAME = process.env.BOOTSTRAP_ADMIN_NAME || "Admin";
 export const BOOTSTRAP_ADMIN_EMAIL = process.env.BOOTSTRAP_ADMIN_EMAIL || "";
 export const BOOTSTRAP_ADMIN_PASSWORD = process.env.BOOTSTRAP_ADMIN_PASSWORD || "";
 
-// The three account types this system supports.
-export const ROLES = ["admin", "hr_manager", "hr_executive"];
+// The account types this system supports.
+// "manager" and "employee" back the self-service leave portal: an employee
+// requests leave from their own dashboard, and a manager (their supervisor)
+// can review it alongside hr_manager/admin.
+export const ROLES = ["admin", "hr_manager", "hr_executive", "manager", "employee"];
 
 export const ROLE_LABELS = {
   admin: "Admin",
   hr_manager: "HR Manager",
   hr_executive: "HR Executive",
+  manager: "Manager",
+  employee: "Employee",
 };
 
 /**
@@ -32,6 +37,7 @@ export const PERMISSIONS = {
     payslips: true,
     users: { view: true, create: true, edit: true, delete: true },
     logs: true,
+    leaves: { request: false, approve: true, viewAll: true, manageProfile: true },
   },
   hr_manager: {
     employees: { view: true, create: true, edit: true, delete: true },
@@ -39,6 +45,7 @@ export const PERMISSIONS = {
     payslips: true,
     users: { view: false, create: false, edit: false, delete: false },
     logs: true,
+    leaves: { request: false, approve: true, viewAll: true, manageProfile: true },
   },
   hr_executive: {
     employees: { view: true, create: true, edit: true, delete: false },
@@ -46,6 +53,23 @@ export const PERMISSIONS = {
     payslips: true,
     users: { view: false, create: false, edit: false, delete: false },
     logs: false,
+    leaves: { request: false, approve: false, viewAll: false, manageProfile: false },
+  },
+  manager: {
+    employees: { view: false, create: false, edit: false, delete: false },
+    import: false,
+    payslips: false,
+    users: { view: false, create: false, edit: false, delete: false },
+    logs: false,
+    leaves: { request: false, approve: true, viewAll: true, manageProfile: false },
+  },
+  employee: {
+    employees: { view: false, create: false, edit: false, delete: false },
+    import: false,
+    payslips: false,
+    users: { view: false, create: false, edit: false, delete: false },
+    logs: false,
+    leaves: { request: true, approve: false, viewAll: false, manageProfile: false },
   },
 };
 

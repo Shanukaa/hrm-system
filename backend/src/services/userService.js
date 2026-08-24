@@ -24,6 +24,15 @@ export async function ensureUsersTable() {
       createdBy VARCHAR(255)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // Migration: link a login account to a payroll employee row (empNo), used
+  // by the "employee" and "manager" roles for the self-service leave portal.
+  // Wrapped in try/catch so it's a no-op once the column already exists.
+  try {
+    await pool.query(`ALTER TABLE ${TABLE} ADD COLUMN empNo VARCHAR(64) NULL AFTER role`);
+  } catch (err) {
+    if (err.code !== "ER_DUP_FIELDNAME") throw err;
+  }
 }
 
 function normalizeRow(row) {
@@ -52,7 +61,15 @@ export async function getUserById(id) {
   return rows[0] ? normalizeRow(rows[0]) : null;
 }
 
-export async function createUser({ name, email, password, role, createdBy }) {
+/** Roles that must be linked to a payroll employee row via empNo. */
+const EMP_LINKED_ROLES = ["employee", "manager"];
+
+export async function getUserByEmpNo(empNo) {
+  const [rows] = await pool.query(`SELECT * FROM ${TABLE} WHERE empNo = ? LIMIT 1`, [empNo]);
+  return rows[0] ? normalizeRow(rows[0]) : null;
+}
+
+export async function createUser({ name, email, password, role, empNo, createdBy }) {
   if (!name || !email || !password || !role) {
     const err = new Error("name, email, password and role are all required");
     err.status = 400;
@@ -63,11 +80,24 @@ export async function createUser({ name, email, password, role, createdBy }) {
     err.status = 400;
     throw err;
   }
+  if (EMP_LINKED_ROLES.includes(role) && !empNo) {
+    const err = new Error(`${role} accounts must be linked to an EMP NO`);
+    err.status = 400;
+    throw err;
+  }
   const existing = await getUserByEmail(email);
   if (existing) {
     const err = new Error(`A user with email "${email}" already exists`);
     err.status = 409;
     throw err;
+  }
+  if (empNo) {
+    const existingLink = await getUserByEmpNo(empNo);
+    if (existingLink) {
+      const err = new Error(`Employee ${empNo} is already linked to another account (${existingLink.email})`);
+      err.status = 409;
+      throw err;
+    }
   }
   const passwordHash = await bcrypt.hash(password, 10);
   const user = {
@@ -76,13 +106,14 @@ export async function createUser({ name, email, password, role, createdBy }) {
     email,
     passwordHash,
     role,
+    empNo: empNo || null,
     active: true,
     createdAt: new Date().toISOString(),
     createdBy: createdBy || "",
   };
   await pool.query(
-    `INSERT INTO ${TABLE} (id, name, email, passwordHash, role, active, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [user.id, user.name, user.email, user.passwordHash, user.role, true, user.createdBy]
+    `INSERT INTO ${TABLE} (id, name, email, passwordHash, role, empNo, active, createdBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [user.id, user.name, user.email, user.passwordHash, user.role, user.empNo, true, user.createdBy]
   );
   return user;
 }
@@ -102,12 +133,28 @@ export async function updateUser(id, data) {
   const updated = { ...existing };
   if (data.name !== undefined) updated.name = data.name;
   if (data.role !== undefined) updated.role = data.role;
+  if (data.empNo !== undefined) updated.empNo = data.empNo || null;
   if (data.active !== undefined) updated.active = !!data.active;
   if (data.password) updated.passwordHash = await bcrypt.hash(data.password, 10);
 
-  await pool.query(`UPDATE ${TABLE} SET name = ?, role = ?, active = ?, passwordHash = ? WHERE id = ?`, [
+  if (EMP_LINKED_ROLES.includes(updated.role) && !updated.empNo) {
+    const err = new Error(`${updated.role} accounts must be linked to an EMP NO`);
+    err.status = 400;
+    throw err;
+  }
+  if (updated.empNo) {
+    const existingLink = await getUserByEmpNo(updated.empNo);
+    if (existingLink && existingLink.id !== id) {
+      const err = new Error(`Employee ${updated.empNo} is already linked to another account (${existingLink.email})`);
+      err.status = 409;
+      throw err;
+    }
+  }
+
+  await pool.query(`UPDATE ${TABLE} SET name = ?, role = ?, empNo = ?, active = ?, passwordHash = ? WHERE id = ?`, [
     updated.name,
     updated.role,
+    updated.empNo,
     updated.active,
     updated.passwordHash,
     id,

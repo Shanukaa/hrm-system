@@ -23,8 +23,8 @@ router.get("/roles", (req, res) => {
 
 router.post("/", requirePermission("users", "create"), async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
-    const user = await createUser({ name, email, password, role, createdBy: req.user.email });
+    const { name, email, password, role, empNo } = req.body;
+    const user = await createUser({ name, email, password, role, empNo, createdBy: req.user.email });
     await addLog({
       userEmail: req.user.email,
       userRole: req.user.role,

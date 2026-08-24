@@ -2,5 +2,4 @@ node_modules/
 dist/
 .env
 backend/service-account.json
-backend/assets/logo.png
 .DS_Store
