@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getDepartments } from "../api/client.js";
 
 const PROBATION_OPTIONS = [3, 4, 5, 6];
 
@@ -15,10 +16,19 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
     probationMonths: 6,
     managerEmpNo: "",
     annualLeaveDays: "",
+    departmentId: "",
+    birthDate: "",
   });
+  const [departments, setDepartments] = useState([]);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    getDepartments()
+      .then(setDepartments)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!profile) return;
@@ -28,6 +38,8 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
       probationMonths: profile.probationMonths || 6,
       managerEmpNo: profile.managerEmpNo || "",
       annualLeaveDays: profile.annualLeaveSet && profile.annualLeaveDays !== null ? String(profile.annualLeaveDays) : "",
+      departmentId: profile.departmentId ? String(profile.departmentId) : "",
+      birthDate: profile.birthDate || "",
     });
   }, [profile]);
 
@@ -41,6 +53,8 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
         probationMonths: Number(form.probationMonths),
         managerEmpNo: form.managerEmpNo || null,
         annualLeaveDays: form.annualLeaveDays === "" ? null : Number(form.annualLeaveDays),
+        departmentId: form.departmentId === "" ? null : Number(form.departmentId),
+        birthDate: form.birthDate || null,
       });
       setSavedAt(new Date());
     } catch (err) {
@@ -104,12 +118,42 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
         )}
 
         <label>
-          <span className="text-xs font-medium text-muted">Manager's EMP No</span>
+          <span className="text-xs font-medium text-muted">Department</span>
+          <select
+            value={form.departmentId}
+            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+          >
+            <option value="">Unassigned</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+          <span className="text-[11px] text-muted mt-1 block">
+            Determines whose leave-approval queue this employee's requests land in, and who reviews their leave.
+          </span>
+        </label>
+
+        <label>
+          <span className="text-xs font-medium text-muted">Date of birth</span>
+          <input
+            type="date"
+            value={form.birthDate}
+            onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
+            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+          />
+          <span className="text-[11px] text-muted mt-1 block">Used for the company-wide birthday shout-out.</span>
+        </label>
+
+        <label>
+          <span className="text-xs font-medium text-muted">Manager's EMP No (fallback)</span>
           <input
             type="text"
             value={form.managerEmpNo}
             onChange={(e) => setForm({ ...form, managerEmpNo: e.target.value })}
-            placeholder="e.g. EMP-0012"
+            placeholder="Only needed if this employee has no department"
             className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
         </label>

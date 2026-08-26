@@ -113,8 +113,8 @@ export const previewLeaveDays = (startDate, endDate) =>
 
 export const createLeaveRequest = (data) => api.post("/leaves/requests", data).then((r) => r.data);
 
-export const getMyLeaveRequests = (empNo) =>
-  api.get("/leaves/requests/mine", { params: empNo ? { empNo } : {} }).then((r) => r.data);
+export const getMyLeaveRequests = (empNo, months) =>
+  api.get("/leaves/requests/mine", { params: { ...(empNo ? { empNo } : {}), ...(months ? { months } : {}) } }).then((r) => r.data);
 
 export const getLeaveNotifications = (empNo) =>
   api.get("/leaves/notifications", { params: empNo ? { empNo } : {} }).then((r) => r.data);
@@ -127,5 +127,24 @@ export const getAllLeaveRequests = (status) =>
 
 export const decideLeaveRequest = (id, decision, note) =>
   api.put(`/leaves/requests/${id}/decision`, { decision, note }).then((r) => r.data);
+
+export const checkLeaveCapacity = (startDate, endDate, empNo) =>
+  api.get("/leaves/capacity-check", { params: { startDate, endDate, ...(empNo ? { empNo } : {}) } }).then((r) => r.data);
+
+export const getAvailabilityCalendar = (year, month, departmentId) =>
+  api.get("/leaves/availability", { params: { year, month, ...(departmentId ? { departmentId } : {}) } }).then((r) => r.data);
+
+// --- Departments ---
+export const getDepartments = () => api.get("/departments").then((r) => r.data);
+export const getMyDepartment = () => api.get("/departments/mine").then((r) => r.data);
+export const getDepartmentEmployees = (id) => api.get(`/departments/${id}/employees`).then((r) => r.data);
+export const createDepartment = (data) => api.post("/departments", data).then((r) => r.data);
+export const updateDepartment = (id, data) => api.put(`/departments/${id}`, data).then((r) => r.data);
+export const deleteDepartment = (id) => api.delete(`/departments/${id}`).then((r) => r.data);
+
+// --- Notifications & announcements ---
+export const getNotifications = () => api.get("/notifications").then((r) => r.data);
+export const createAnnouncement = (data) => api.post("/notifications/announcements", data).then((r) => r.data);
+export const deleteAnnouncement = (id) => api.delete(`/notifications/announcements/${id}`).then((r) => r.data);
 
 export default api;

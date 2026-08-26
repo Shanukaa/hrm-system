@@ -51,6 +51,19 @@ export async function ensureLeaveTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // Migrations: department assignment + date of birth (for the birthday
+  // notification), added on top of the original profile table.
+  for (const stmt of [
+    `ALTER TABLE ${PROFILE_TABLE} ADD COLUMN departmentId INT NULL AFTER managerEmpNo`,
+    `ALTER TABLE ${PROFILE_TABLE} ADD COLUMN birthDate DATE NULL AFTER departmentId`,
+  ]) {
+    try {
+      await pool.query(stmt);
+    } catch (err) {
+      if (err.code !== "ER_DUP_FIELDNAME") throw err;
+    }
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ${REQUEST_TABLE} (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -106,6 +119,8 @@ function normalizeProfileRow(row) {
     annualLeaveSet: !!row.annualLeaveSet,
     annualLeaveDays: row.annualLeaveDays === null ? null : Number(row.annualLeaveDays),
     joinDate: row.joinDate ? new Date(row.joinDate).toISOString().slice(0, 10) : null,
+    birthDate: row.birthDate ? new Date(row.birthDate).toISOString().slice(0, 10) : null,
+    departmentId: row.departmentId === null || row.departmentId === undefined ? null : Number(row.departmentId),
   };
 }
 
@@ -121,6 +136,9 @@ export async function upsertLeaveProfile(empNo, data, updatedBy) {
     employmentType: data.employmentType || existing?.employmentType || "probation",
     probationMonths: data.probationMonths ?? existing?.probationMonths ?? 6,
     managerEmpNo: data.managerEmpNo !== undefined ? data.managerEmpNo || null : existing?.managerEmpNo || null,
+    departmentId:
+      data.departmentId !== undefined ? (data.departmentId === "" ? null : Number(data.departmentId)) : existing?.departmentId ?? null,
+    birthDate: data.birthDate !== undefined ? data.birthDate || null : existing?.birthDate || null,
   };
 
   // Annual leave allocation is only ever set explicitly by HR/Admin — once
@@ -152,13 +170,15 @@ export async function upsertLeaveProfile(empNo, data, updatedBy) {
 
   await pool.query(
     `INSERT INTO ${PROFILE_TABLE}
-      (empNo, joinDate, employmentType, probationMonths, managerEmpNo, annualLeaveDays, annualLeaveSet, annualLeaveSetBy, annualLeaveSetAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (empNo, joinDate, employmentType, probationMonths, managerEmpNo, departmentId, birthDate, annualLeaveDays, annualLeaveSet, annualLeaveSetBy, annualLeaveSetAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        joinDate = VALUES(joinDate),
        employmentType = VALUES(employmentType),
        probationMonths = VALUES(probationMonths),
        managerEmpNo = VALUES(managerEmpNo),
+       departmentId = VALUES(departmentId),
+       birthDate = VALUES(birthDate),
        annualLeaveDays = VALUES(annualLeaveDays),
        annualLeaveSet = VALUES(annualLeaveSet),
        annualLeaveSetBy = VALUES(annualLeaveSetBy),
@@ -169,6 +189,8 @@ export async function upsertLeaveProfile(empNo, data, updatedBy) {
       merged.employmentType,
       merged.probationMonths,
       merged.managerEmpNo,
+      merged.departmentId,
+      merged.birthDate,
       annualLeaveDays,
       annualLeaveSet,
       annualLeaveSetBy,
@@ -329,10 +351,10 @@ export async function getLeaveRequestById(id) {
   return normalizeRequestRow(rows[0]);
 }
 
-export async function getLeaveRequestsForEmployee(empNo) {
+export async function getLeaveRequestsForEmployee(empNo, { months } = {}) {
   const [rows] = await pool.query(
-    `SELECT * FROM ${REQUEST_TABLE} WHERE empNo = ? ORDER BY requestedAt DESC`,
-    [empNo]
+    `SELECT * FROM ${REQUEST_TABLE} WHERE empNo = ? ${months ? "AND requestedAt >= DATE_SUB(NOW(), INTERVAL ? MONTH)" : ""} ORDER BY requestedAt DESC`,
+    months ? [empNo, months] : [empNo]
   );
   return rows.map(normalizeRequestRow);
 }
@@ -407,4 +429,117 @@ export async function decideLeaveRequest(id, { decision, note, reviewedBy, revie
   );
 
   return getLeaveRequestById(id);
+}
+
+/**
+ * Checks whether approving/pending a [startDate,endDate] request would push
+ * a department's simultaneous leave count above the manager-set cap on any
+ * single day. Doesn't block anything — callers use this to warn, not stop.
+ */
+export async function checkDepartmentCapacity(departmentId, startDate, endDate, { excludeRequestId } = {}) {
+  if (!departmentId) return { exceeds: false };
+  const [[dept]] = await pool.query(`SELECT maxConcurrentLeaves FROM departments WHERE id = ?`, [departmentId]);
+  const max = dept?.maxConcurrentLeaves;
+  if (!max) return { exceeds: false };
+
+  const [empRows] = await pool.query(`SELECT empNo FROM ${PROFILE_TABLE} WHERE departmentId = ?`, [departmentId]);
+  const empNos = empRows.map((r) => r.empNo);
+  if (empNos.length === 0) return { exceeds: false };
+
+  const [rows] = await pool.query(
+    `SELECT startDate, endDate FROM ${REQUEST_TABLE}
+     WHERE empNo IN (${empNos.map(() => "?").join(",")}) AND status IN ('pending','approved')
+       AND startDate <= ? AND endDate >= ? ${excludeRequestId ? "AND id != ?" : ""}`,
+    excludeRequestId ? [...empNos, endDate, startDate, excludeRequestId] : [...empNos, endDate, startDate]
+  );
+
+  let worstDay = null;
+  let worstCount = 0;
+  const cursor = toDateOnly(startDate);
+  const end = toDateOnly(endDate);
+  while (cursor <= end) {
+    const iso = cursor.toISOString().slice(0, 10);
+    const count = rows.filter((r) => {
+      const s = toDateOnly(r.startDate).toISOString().slice(0, 10);
+      const e = toDateOnly(r.endDate).toISOString().slice(0, 10);
+      return s <= iso && e >= iso;
+    }).length + 1; // +1 for the request being evaluated
+    if (count > worstCount) {
+      worstCount = count;
+      worstDay = iso;
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return { exceeds: worstCount > max, max, worstCount, worstDay };
+}
+
+/**
+ * Day-by-day availability for a set of employees (a department, or the
+ * whole company) across a calendar month — who's on approved leave each day.
+ */
+export async function getAvailabilityCalendar({ departmentId, year, month }) {
+  let empNos;
+  let employees;
+  if (departmentId) {
+    const [rows] = await pool.query(
+      `SELECT e.empNo, e.employeeName FROM ${PROFILE_TABLE} p JOIN employees e ON e.empNo = p.empNo WHERE p.departmentId = ?`,
+      [departmentId]
+    );
+    employees = rows;
+  } else {
+    const [rows] = await pool.query(`SELECT empNo, employeeName FROM employees`);
+    employees = rows;
+  }
+  empNos = employees.map((e) => e.empNo);
+
+  const monthStart = new Date(Date.UTC(year, month - 1, 1));
+  const monthEnd = new Date(Date.UTC(year, month, 0));
+
+  let leaveRows = [];
+  if (empNos.length > 0) {
+    const [rows] = await pool.query(
+      `SELECT empNo, employeeName, startDate, endDate FROM ${REQUEST_TABLE}
+       WHERE empNo IN (${empNos.map(() => "?").join(",")}) AND status = 'approved'
+         AND startDate <= ? AND endDate >= ?`,
+      [...empNos, monthEnd.toISOString().slice(0, 10), monthStart.toISOString().slice(0, 10)]
+    );
+    leaveRows = rows;
+  }
+
+  const days = {};
+  const cursor = new Date(monthStart);
+  while (cursor <= monthEnd) {
+    const iso = cursor.toISOString().slice(0, 10);
+    const onLeave = leaveRows
+      .filter((r) => {
+        const s = toDateOnly(r.startDate).toISOString().slice(0, 10);
+        const e = toDateOnly(r.endDate).toISOString().slice(0, 10);
+        return s <= iso && e >= iso;
+      })
+      .map((r) => ({ empNo: r.empNo, employeeName: r.employeeName }));
+    days[iso] = { onLeave, availableCount: Math.max(0, employees.length - onLeave.length) };
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return { totalEmployees: employees.length, days };
+}
+
+/** Employees whose birthday (month/day) falls today or was yesterday — a 2-day visibility window. */
+export async function getRecentAndUpcomingBirthdays() {
+  const [rows] = await pool.query(
+    `SELECT p.empNo, e.employeeName, p.birthDate FROM ${PROFILE_TABLE} p
+     JOIN employees e ON e.empNo = p.empNo
+     WHERE p.birthDate IS NOT NULL`
+  );
+  const today = toDateOnly(new Date());
+  return rows
+    .map((r) => {
+      const bday = toDateOnly(r.birthDate);
+      const thisYear = new Date(Date.UTC(today.getUTCFullYear(), bday.getUTCMonth(), bday.getUTCDate()));
+      const diffDays = Math.round((today - thisYear) / 86400000);
+      return { ...r, diffDays, thisYear: thisYear.toISOString().slice(0, 10) };
+    })
+    .filter((r) => r.diffDays === 0 || r.diffDays === 1)
+    .map((r) => ({ empNo: r.empNo, employeeName: r.employeeName, date: r.thisYear, isToday: r.diffDays === 0 }));
 }

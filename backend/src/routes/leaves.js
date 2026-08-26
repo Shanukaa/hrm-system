@@ -11,6 +11,8 @@ import {
   getUnseenDecisions,
   markRequestSeen,
   decideLeaveRequest,
+  checkDepartmentCapacity,
+  getAvailabilityCalendar,
 } from "../services/leaveService.js";
 import { getEmployeeByEmpNo } from "../services/employeeService.js";
 import { addLog } from "../services/logService.js";
@@ -21,7 +23,7 @@ router.use(requireAuth);
 
 /** Resolves the empNo a request should act on: an employee always acts on their own, others may target via query/body. */
 function resolveEmpNo(req, source) {
-  if (req.user.role === "employee") {
+  if (["employee", "manager"].includes(req.user.role)) {
     if (!req.user.empNo) {
       const err = new Error("Your account isn't linked to an employee record yet. Contact HR.");
       err.status = 400;
@@ -45,7 +47,7 @@ router.get("/policy", (req, res) => {
 // --- Leave profile (employment type, join date, manager, annual allocation) ---
 router.get("/profile/:empNo", async (req, res, next) => {
   try {
-    const isSelf = req.user.role === "employee" && req.user.empNo === req.params.empNo;
+    const isSelf = ["employee", "manager"].includes(req.user.role) && req.user.empNo === req.params.empNo;
     if (!isSelf && !req.user.role.match(/^(admin|hr_manager|hr_executive|manager)$/)) {
       return res.status(403).json({ error: "You don't have permission to view this" });
     }
@@ -120,7 +122,17 @@ router.post("/requests", requirePermission("leaves", "request"), async (req, res
       details: `${employee.employeeName} (${empNo}) requested leave ${startDate} to ${endDate}`,
       ip: req.ip,
     });
-    res.status(201).json(request);
+
+    let capacityWarning = null;
+    const profile = await getLeaveProfile(empNo);
+    if (profile?.departmentId) {
+      capacityWarning = await checkDepartmentCapacity(profile.departmentId, startDate, endDate, {
+        excludeRequestId: request.id,
+      });
+      if (!capacityWarning.exceeds) capacityWarning = null;
+    }
+
+    res.status(201).json({ ...request, capacityWarning });
   } catch (err) {
     next(err);
   }
@@ -129,7 +141,7 @@ router.post("/requests", requirePermission("leaves", "request"), async (req, res
 router.get("/requests/mine", requirePermission("leaves", "request"), async (req, res, next) => {
   try {
     const empNo = resolveEmpNo(req, req.query);
-    const requests = await getLeaveRequestsForEmployee(empNo);
+    const requests = await getLeaveRequestsForEmployee(empNo, { months: req.query.months ? Number(req.query.months) : undefined });
     res.json(requests);
   } catch (err) {
     next(err);
@@ -182,7 +194,46 @@ router.put("/requests/:id/decision", requirePermission("leaves", "approve"), asy
       details: `${decision === "approved" ? "Approved" : "Rejected"} leave request #${updated.id} for ${updated.empNo}`,
       ip: req.ip,
     });
-    res.json(updated);
+
+    let capacityWarning = null;
+    if (decision === "approved") {
+      const profile = await getLeaveProfile(updated.empNo);
+      if (profile?.departmentId) {
+        capacityWarning = await checkDepartmentCapacity(profile.departmentId, updated.startDate, updated.endDate);
+        if (!capacityWarning.exceeds) capacityWarning = null;
+      }
+    }
+
+    res.json({ ...updated, capacityWarning });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Capacity preview (used by the request form before submitting) ---
+router.get("/capacity-check", async (req, res, next) => {
+  try {
+    const empNo = resolveEmpNo(req, req.query);
+    const { startDate, endDate } = req.query;
+    const profile = await getLeaveProfile(empNo);
+    if (!profile?.departmentId) return res.json({ exceeds: false });
+    const result = await checkDepartmentCapacity(profile.departmentId, startDate, endDate);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// --- Availability calendar (manager/hr_manager/admin: who's free each day) ---
+router.get("/availability", requirePermission("leaves", "viewAll"), async (req, res, next) => {
+  try {
+    const { departmentId, year, month } = req.query;
+    const result = await getAvailabilityCalendar({
+      departmentId: departmentId ? Number(departmentId) : null,
+      year: Number(year),
+      month: Number(month),
+    });
+    res.json(result);
   } catch (err) {
     next(err);
   }

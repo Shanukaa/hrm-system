@@ -38,6 +38,8 @@ export const PERMISSIONS = {
     users: { view: true, create: true, edit: true, delete: true },
     logs: true,
     leaves: { request: false, approve: true, viewAll: true, manageProfile: true },
+    departments: { view: true, manage: true },
+    announcements: { createGlobal: true, createDepartment: false, view: true, manage: true },
   },
   hr_manager: {
     employees: { view: true, create: true, edit: true, delete: true },
@@ -46,6 +48,8 @@ export const PERMISSIONS = {
     users: { view: false, create: false, edit: false, delete: false },
     logs: true,
     leaves: { request: false, approve: true, viewAll: true, manageProfile: true },
+    departments: { view: true, manage: true },
+    announcements: { createGlobal: true, createDepartment: false, view: true, manage: true },
   },
   hr_executive: {
     employees: { view: true, create: true, edit: true, delete: false },
@@ -54,6 +58,8 @@ export const PERMISSIONS = {
     users: { view: false, create: false, edit: false, delete: false },
     logs: false,
     leaves: { request: false, approve: false, viewAll: false, manageProfile: false },
+    departments: { view: true, manage: false },
+    announcements: { createGlobal: false, createDepartment: false, view: true, manage: false },
   },
   manager: {
     employees: { view: false, create: false, edit: false, delete: false },
@@ -61,7 +67,11 @@ export const PERMISSIONS = {
     payslips: false,
     users: { view: false, create: false, edit: false, delete: false },
     logs: false,
-    leaves: { request: false, approve: true, viewAll: true, manageProfile: false },
+    // Managers can both request their own leave (from their manager/HR) and
+    // approve leave for the employees in their department.
+    leaves: { request: true, approve: true, viewAll: true, manageProfile: false },
+    departments: { view: true, manage: false },
+    announcements: { createGlobal: false, createDepartment: true, view: true, manage: false },
   },
   employee: {
     employees: { view: false, create: false, edit: false, delete: false },
@@ -70,6 +80,8 @@ export const PERMISSIONS = {
     users: { view: false, create: false, edit: false, delete: false },
     logs: false,
     leaves: { request: true, approve: false, viewAll: false, manageProfile: false },
+    departments: { view: false, manage: false },
+    announcements: { createGlobal: false, createDepartment: false, view: true, manage: false },
   },
 };
 

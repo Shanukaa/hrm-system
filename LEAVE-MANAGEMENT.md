@@ -97,9 +97,123 @@ used for its other tables) — nothing to run by hand:
 - There's a single leave "pool" per employee — no separate categories like
   medical vs. casual leave. Adding that later just means adding a
   `leaveType` column to `leave_requests` and a per-type quota if you need it.
-- The approval queue is org-wide for `manager`/`hr_manager`/`admin` rather
-  than scoped to "my direct reports," matching the brief's wording. The
-  `managerEmpNo` field is captured on the leave profile if you want to add
-  that filtering later.
+- The approval queue is org-wide for `hr_manager`/`admin` rather than scoped
+  — matching the brief's original wording for those two roles. A `manager`'s
+  queue (on their own dashboard, "Department" tab) *is* scoped to their
+  department's employees.
 - The employee's own profile view intentionally hides salary/bank details —
-  it only shows name, EMP No, designation, cost centre, NIC, and EPF no.
+  it only shows name, EMP No, designation, department, cost centre, NIC,
+  EPF no, join date, employment type, and date of birth.
+
+---
+
+# Round 2 — Departments, manager self-leave, calendars, capacity limits, notifications
+
+Everything below was added on top of round 1 and is, again, purely additive.
+
+## 1. Departments
+
+New **Departments** page (Admin/HR Manager only, in the sidebar) with a card
+per department: name, assigned manager, headcount, and a max-simultaneous-
+leave setting. Create/update/delete is restricted to `admin` and
+`hr_manager` — this is enforced both in the UI and on the backend
+(`departments.manage` permission).
+
+Assigning an employee to a department happens on their **Leave Profile**
+(Employees → edit → Leave Profile section) — that's also where their
+department's manager becomes "their" manager for leave purposes.
+
+## 2. Managers can request their own leave
+
+The `manager` role's dashboard has a **Request Leave** tab exactly like an
+employee's — a manager applies to whoever reviews the org-wide queue
+(`hr_manager`/`admin`) the same way any employee's request lands with their
+department manager. (Permission-wise: `manager` now has both
+`leaves.request` and `leaves.approve`.)
+
+## 3. Calendars
+
+Every dashboard (employee and manager) has a **Calendar** tab:
+
+- **Employee**: a month calendar with a colored bar on each day showing
+  already-approved (green), pending (amber), or rejected (red) leave —
+  covers "already got leaves, upcoming leaves, and rejected leaves."
+- **Manager**: their own leave calendar (same as above) *plus* a **Team
+  Availability** calendar underneath, showing per-day how many of their
+  department's employees are available vs. on approved leave, with a
+  click-through list of who's out on a given day.
+- HR Manager/Admin get the same team-availability calendar from the
+  **Leave Requests** page, with a department picker (or "All departments").
+
+## 4. Department leave capacity
+
+Each department has an optional **max concurrent leave** setting (managers
+edit their own from the Department tab; HR/Admin can set any department's
+from the Departments page). Nothing is *blocked* by this — matching how the
+rest of the leave system already works (warn, don't stop):
+
+- When an employee submits a request that would push a day over the limit,
+  they get an in-page popup ("On [date], N people would be on leave — above
+  your department's max of M").
+- When a manager/HR approves a request that does the same, they get the
+  equivalent popup at approval time.
+
+## 5 & 6. Dashboard navigation
+
+Both self-service dashboards are now a single page with a tab bar (works
+identically on mobile — the tab bar scrolls horizontally):
+
+- **Employee**: Dashboard, My Profile, Calendar, Payslips, Leave Balance,
+  Request Leave, My Leave Requests (last 3 months), Notifications.
+- **Manager**: Dashboard, My Profile, Calendar, **Department** (approval
+  queue + capacity setting — see note below), Payslips, Leave Balance,
+  Request Leave, My Leave Requests (last 3 months), Notifications.
+
+One deliberate addition beyond your listed nav items: a manager's **Department**
+tab, holding their approval queue and capacity setting. Approving leave and
+setting a department's cap are both explicitly manager duties elsewhere in
+the brief, so they needed a home — I placed them together rather than
+scattering them across the requested tabs.
+
+Payslips: an employee/manager downloads *their own* payslip by month/year
+(defaults to the current month, dropdowns to pick another) — the payslip
+download endpoint now checks that the caller is either that employee
+themself or has the `payslips` permission (previously this endpoint had **no
+permission check at all**, so this was also a security fix, not just a
+feature add).
+
+## 7. Notifications
+
+The Notifications tab (and the "Post Announcement" button that appears for
+authorized roles) combines three things in one feed:
+
+- **Management announcements** — posted by `admin`/`hr_manager`, visible
+  company-wide.
+- **Department announcements** — posted by a `manager`, visible only to
+  their own department (they can't pick a different scope — it's locked to
+  the department they manage).
+- **Birthdays** — computed live from each employee's date of birth (set via
+  Leave Profile), shown company-wide on the day and the day after, then
+  gone automatically — no cleanup job needed, it's just a date comparison.
+- Existing leave-decision notices ("your leave is confirmed" / rejection +
+  reason) still show here too, dismissible per request as before.
+
+## Database changes (round 2)
+
+Again all automatic on startup:
+
+- New `departments` table (name, managerEmpNo, maxConcurrentLeaves).
+- `employee_leave_profile` gains `departmentId` and `birthDate` columns.
+- New `announcements` table (title, body, scope, departmentId, author).
+
+## Setting it up
+
+1. Deploy as normal — same env vars as before.
+2. Go to **Departments**, create your departments, assign a manager to each
+   (pick from your employee list), and optionally set a max-concurrent-leave
+   number.
+3. On each employee's **Leave Profile**, assign their department and date of
+   birth in addition to the join date / employment type from round 1.
+4. Create the manager's login (Users → role `manager`, linked to their EMP
+   No) the same way you'd create an `employee` login.
+

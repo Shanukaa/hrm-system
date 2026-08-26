@@ -13,11 +13,11 @@ const ROLE_LABELS = {
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LedgerIcon, roles: ["admin", "hr_manager", "hr_executive"] },
-  { to: "/", label: "My Dashboard", icon: LedgerIcon, roles: ["employee"] },
-  { to: "/", label: "Leave Requests", icon: LeafIcon, roles: ["manager"] },
+  { to: "/", label: "My Dashboard", icon: LedgerIcon, roles: ["employee", "manager"] },
   { to: "/employees/new", label: "Add Employee", icon: PlusIcon, roles: ["admin", "hr_manager", "hr_executive"] },
   { to: "/import", label: "Import Data", icon: UploadIcon, roles: ["admin", "hr_manager"] },
   { to: "/payslips", label: "Payslips", icon: StubIcon, roles: ["admin", "hr_manager", "hr_executive"] },
+  { to: "/departments", label: "Departments", icon: DeptIcon, roles: ["admin", "hr_manager"] },
   { to: "/leaves", label: "Leave Requests", icon: LeafIcon, roles: ["admin", "hr_manager"] },
   { to: "/users", label: "Users", icon: UsersIcon, roles: ["admin"] },
   { to: "/logs", label: "Activity Log", icon: LogIcon, roles: ["admin", "hr_manager"] },
@@ -197,6 +197,15 @@ function LogoutIcon() {
         strokeLinejoin="round"
       />
       <path d="M10.5 11l3-3-3-3M13.3 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function DeptIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="7" width="4.5" height="7" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="9.5" y="4" width="4.5" height="10" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4.3 9.5h0M11.8 6.5h0M11.8 9h0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }

@@ -11,10 +11,14 @@ import importRouter from "./routes/import.js";
 import payslipsRouter from "./routes/payslips.js";
 import dashboardRouter from "./routes/dashboard.js";
 import leavesRouter from "./routes/leaves.js";
+import departmentsRouter from "./routes/departments.js";
+import notificationsRouter from "./routes/notifications.js";
 import { ensureEmployeesTable } from "./services/employeeService.js";
 import { ensureUsersTable, bootstrapAdminIfNeeded } from "./services/userService.js";
 import { ensureLogsTable } from "./services/logService.js";
 import { ensureLeaveTables } from "./services/leaveService.js";
+import { ensureDepartmentsTable } from "./services/departmentService.js";
+import { ensureAnnouncementsTable } from "./services/announcementService.js";
 
 dotenv.config();
 
@@ -36,6 +40,8 @@ app.use("/api/import", importRouter);
 app.use("/api/payslips", payslipsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/leaves", leavesRouter);
+app.use("/api/departments", departmentsRouter);
+app.use("/api/notifications", notificationsRouter);
 
 // Central error handler
 app.use((err, req, res, next) => {
@@ -48,7 +54,9 @@ async function start() {
     await ensureEmployeesTable();
     await ensureUsersTable();
     await ensureLogsTable();
+    await ensureDepartmentsTable();
     await ensureLeaveTables();
+    await ensureAnnouncementsTable();
     await bootstrapAdminIfNeeded();
   } catch (err) {
     console.warn(

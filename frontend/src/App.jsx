@@ -5,12 +5,14 @@ import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import EmployeeDashboard from "./pages/EmployeeDashboard.jsx";
+import ManagerDashboard from "./pages/ManagerDashboard.jsx";
 import EmployeeForm from "./pages/EmployeeForm.jsx";
 import Import from "./pages/Import.jsx";
 import Payslips from "./pages/Payslips.jsx";
 import Users from "./pages/Users.jsx";
 import Logs from "./pages/Logs.jsx";
 import LeaveApprovals from "./pages/LeaveApprovals.jsx";
+import Departments from "./pages/Departments.jsx";
 
 export default function App() {
   return (
@@ -34,7 +36,7 @@ export default function App() {
 function Home() {
   const { user } = useAuth();
   if (user?.role === "employee") return <EmployeeDashboard />;
-  if (user?.role === "manager") return <LeaveApprovals />;
+  if (user?.role === "manager") return <ManagerDashboard />;
   return <Dashboard />;
 }
 
@@ -80,8 +82,16 @@ function AppShell() {
           <Route
             path="/leaves"
             element={
-              <ProtectedRoute roles={["admin", "hr_manager", "manager"]}>
+              <ProtectedRoute roles={["admin", "hr_manager"]}>
                 <LeaveApprovals />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/departments"
+            element={
+              <ProtectedRoute roles={["admin", "hr_manager"]}>
+                <Departments />
               </ProtectedRoute>
             }
           />

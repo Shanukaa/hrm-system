@@ -6,6 +6,7 @@ import PDFDocument from "pdfkit";
 import { PassThrough } from "stream";
 import { addLog } from "../services/logService.js";
 import { requireAuth } from "../middleware/auth.js";
+import { can } from "../config/auth.js";
 
 const router = Router();
 
@@ -13,6 +14,11 @@ router.use(requireAuth);
 
 router.get("/:empNo", async (req, res, next) => {
   try {
+    const isSelf = ["employee", "manager"].includes(req.user.role) && req.user.empNo === req.params.empNo;
+    if (!isSelf && !can(req.user.role, "payslips")) {
+      return res.status(403).json({ error: "You don't have permission to do that" });
+    }
+
     const employee = await getEmployeeByEmpNo(req.params.empNo);
     if (!employee) return res.status(404).json({ error: "Employee not found" });
 
@@ -42,6 +48,9 @@ router.get("/:empNo", async (req, res, next) => {
 // Bulk-generate payslips for every employee (or a filtered subset via ?empNos=A,B,C) as a single zip.
 router.get("/", async (req, res, next) => {
   try {
+    if (!can(req.user.role, "payslips")) {
+      return res.status(403).json({ error: "You don't have permission to do that" });
+    }
     const all = await getAllEmployees();
     const filterList = req.query.empNos ? req.query.empNos.split(",").map((s) => s.trim()) : null;
     const employees = filterList ? all.filter((e) => filterList.includes(e.empNo)) : all;
