@@ -7,7 +7,7 @@ const STATUS_STYLES = {
 /** Shows the last N months (default 3) of an employee/manager's own leave requests. */
 export default function MyLeaveHistory({ requests }) {
   return (
-    <div className="bg-surface border border-line rounded-lg overflow-hidden">
+    <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card overflow-hidden">
       <h3 className="font-display text-base text-ink px-5 sm:px-6 pt-5 sm:pt-6 pb-4">My Leave Requests (last 3 months)</h3>
 
       {requests.length === 0 ? (

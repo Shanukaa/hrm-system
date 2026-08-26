@@ -10,7 +10,7 @@ export default function LeaveBalanceCard({ balance }) {
   const overBalance = !balance.needsSetup && balance.remaining <= 0;
 
   return (
-    <div className="bg-surface border border-line rounded-lg p-5 sm:p-6">
+    <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 sm:p-6">
       <h3 className="font-display text-base text-ink mb-4">Leave Balance</h3>
       {balance.needsSetup ? (
         <p className="text-sm text-muted">

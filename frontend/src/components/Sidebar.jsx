@@ -37,7 +37,7 @@ export default function Sidebar() {
   const navBody = (
     <>
       <div className="px-6 py-7 border-b border-white/10 flex items-center justify-between">
-        <div className="bg-white rounded-md px-3 py-2.5 inline-block">
+        <div className="bg-white rounded-xl px-3 py-2.5 inline-block shadow-soft">
           <img src={logo} alt="HairSkiin Sri Lanka" className="h-8 w-auto object-contain" />
         </div>
         <button
@@ -57,8 +57,10 @@ export default function Sidebar() {
             end={to === "/"}
             onClick={() => setOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3.5 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"
+              `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                isActive
+                  ? "bg-gradient-to-r from-accent/25 to-accent/5 text-white shadow-[inset_0_0_0_1px_rgba(168,129,60,0.35)]"
+                  : "text-white/60 hover:text-white hover:bg-white/5 hover:translate-x-0.5"
               }`
             }
           >
@@ -77,7 +79,7 @@ export default function Sidebar() {
         )}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-white/60 hover:text-white hover:bg-white/5 transition-colors"
+          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200"
         >
           <LogoutIcon />
           Log out
@@ -93,11 +95,11 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-ink text-white flex items-center justify-between px-4 border-b border-white/10">
-        <button onClick={() => setOpen(true)} className="p-1.5 text-white/80 hover:text-white" aria-label="Open menu">
+      <div className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 bg-ink text-white flex items-center justify-between px-4 border-b border-white/10 shadow-[0_4px_20px_-6px_rgba(22,28,39,0.4)]">
+        <button onClick={() => setOpen(true)} className="p-1.5 text-white/80 hover:text-white transition-colors" aria-label="Open menu">
           <MenuIcon />
         </button>
-        <div className="bg-white rounded px-2.5 py-1.5">
+        <div className="bg-white rounded-lg px-2.5 py-1.5 shadow-soft">
           <img src={logo} alt="HairSkiin Sri Lanka" className="h-5 w-auto object-contain" />
         </div>
         <div className="w-7" />
@@ -118,7 +120,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Desktop static sidebar */}
-      <aside className="hidden lg:flex w-64 shrink-0 bg-ink text-white flex-col min-h-screen">{navBody}</aside>
+      <aside className="hidden lg:flex w-64 shrink-0 bg-ink text-white flex-col min-h-screen shadow-[4px_0_24px_-8px_rgba(22,28,39,0.35)]">{navBody}</aside>
     </>
   );
 }

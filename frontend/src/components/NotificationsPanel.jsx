@@ -77,31 +77,31 @@ export default function NotificationsPanel({ canPostGlobal, canPostDepartment, u
           {!showForm ? (
             <button
               onClick={() => setShowForm(true)}
-              className="text-sm font-medium px-4 py-2 rounded-md bg-ink text-white hover:bg-ink/90 transition-colors"
+              className="text-sm font-medium px-4 py-2 rounded-xl bg-ink text-white shadow-soft hover:bg-ink/90 hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
             >
               + Post Announcement
             </button>
           ) : (
-            <form onSubmit={handlePost} className="bg-surface border border-line rounded-lg p-4 space-y-3">
+            <form onSubmit={handlePost} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-4 space-y-3">
               <input
                 type="text"
                 placeholder="Title"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               />
               <textarea
                 rows={3}
                 placeholder="Message"
                 value={form.body}
                 onChange={(e) => setForm({ ...form, body: e.target.value })}
-                className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               />
               {canPostGlobal && canPostDepartment && (
                 <select
                   value={form.scope}
                   onChange={(e) => setForm({ ...form, scope: e.target.value })}
-                  className="text-sm border border-line rounded-md px-3 py-2 bg-paper"
+                  className="text-sm border border-line rounded-xl px-3 py-2 bg-paper"
                 >
                   <option value="global">Company-wide</option>
                   <option value="department">My department only</option>
@@ -114,14 +114,14 @@ export default function NotificationsPanel({ canPostGlobal, canPostDepartment, u
                 <button
                   type="submit"
                   disabled={posting}
-                  className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                  className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 disabled:opacity-60 transition-all duration-200"
                 >
                   {posting ? "Posting…" : "Post"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="text-sm font-medium px-4 py-2 rounded-md border border-line text-muted hover:text-ink transition-colors"
+                  className="text-sm font-medium px-4 py-2 rounded-md border border-line text-muted hover:text-ink transition-all duration-200"
                 >
                   Cancel
                 </button>

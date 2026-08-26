@@ -31,14 +31,14 @@ export default function AvailabilityCalendar({ role, departmentId: fixedDepartme
   }, [ym, departmentId, fixedDepartmentId]);
 
   return (
-    <div className="bg-surface border border-line rounded-lg p-5 sm:p-6">
+    <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h3 className="font-display text-base text-ink">Team Availability</h3>
         {canPickDepartment && (
           <select
             value={departmentId}
             onChange={(e) => setDepartmentId(e.target.value)}
-            className="text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="text-sm border border-line rounded-xl px-3 py-2 bg-surface shadow-soft focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           >
             <option value="">All departments</option>
             {departments.map((d) => (
@@ -51,36 +51,62 @@ export default function AvailabilityCalendar({ role, departmentId: fixedDepartme
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <div className="bg-surface border border-line rounded-2xl shadow-soft p-10 text-center text-sm text-muted">Loading availability…</div>
       ) : (
         <MonthCalendar
           year={ym.year}
           month={ym.month}
           onChange={(year, month) => setYm({ year, month })}
+          onSelectDay={(iso) => setSelectedDay(data?.days?.[iso] ? { iso, ...data.days[iso] } : { iso, onLeave: [], availableCount: 0 })}
           renderDay={(iso) => {
             const day = data?.days?.[iso];
             if (!day) return null;
+            const allAvailable = day.onLeave.length === 0;
             return (
-              <button onClick={() => setSelectedDay({ iso, ...day })} className="mt-1 block w-full text-left">
-                <span className={`text-[10px] font-medium ${day.onLeave.length > 0 ? "text-alert" : "text-emerald-600"}`}>
+              <div className="mt-1">
+                <span
+                  className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                    allAvailable ? "bg-emerald-100 text-emerald-700" : "bg-alertSoft text-alert"
+                  }`}
+                >
                   {day.availableCount} avail
                 </span>
-              </button>
+              </div>
             );
           }}
+          legend={
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Everyone available
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-alert" /> Some on leave
+              </span>
+            </>
+          }
         />
       )}
 
       {selectedDay && (
-        <div className="mt-4 border-t border-line pt-4">
-          <p className="text-sm font-medium text-ink">{selectedDay.iso}</p>
+        <div className="mt-4 bg-surface border border-line rounded-2xl shadow-soft p-4 sm:p-5 animate-slide-over-in">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-ink">{selectedDay.iso}</p>
+            <button onClick={() => setSelectedDay(null)} className="text-xs text-muted hover:text-ink">
+              Close
+            </button>
+          </div>
           {selectedDay.onLeave.length === 0 ? (
-            <p className="text-sm text-muted mt-1">Everyone's available.</p>
+            <p className="text-sm text-muted">Everyone's available.</p>
           ) : (
-            <ul className="text-sm text-muted mt-1 space-y-0.5">
+            <ul className="space-y-1.5">
               {selectedDay.onLeave.map((e) => (
-                <li key={e.empNo}>
-                  {e.employeeName} <span className="text-xs">({e.empNo})</span> — on leave
+                <li key={e.empNo} className="flex items-center gap-2 text-sm">
+                  <span className="w-6 h-6 rounded-full bg-alertSoft text-alert text-[10px] font-medium flex items-center justify-center shrink-0">
+                    {e.employeeName?.slice(0, 1) || "?"}
+                  </span>
+                  <span className="text-ink">{e.employeeName}</span>
+                  <span className="text-xs text-muted">({e.empNo})</span>
+                  <span className="text-xs text-alert ml-auto">On leave</span>
                 </li>
               ))}
             </ul>

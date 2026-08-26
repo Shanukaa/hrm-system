@@ -83,7 +83,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`text-sm font-medium px-4 py-2 rounded-md border transition-colors ${
+            className={`text-sm font-medium px-4 py-2 rounded-md border transition-all duration-200 ${
               tab === t.key ? "bg-ink text-white border-ink" : "border-line text-muted hover:text-ink"
             }`}
           >
@@ -102,7 +102,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
       ) : (
         <div className="space-y-3">
           {visible.map((r) => (
-            <div key={r.id} className="bg-surface border border-line rounded-lg p-4 sm:p-5">
+            <div key={r.id} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-4 sm:p-5">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-ink">
@@ -141,13 +141,13 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
                         value={rejectNote}
                         onChange={(e) => setRejectNote(e.target.value)}
                         placeholder="Reason for rejecting (required)"
-                        className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                        className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleReject(r.id)}
                           disabled={busyId === r.id || !rejectNote.trim()}
-                          className="text-sm font-medium px-4 py-2 rounded-md bg-alert text-white hover:bg-alert/90 disabled:opacity-50 transition-colors"
+                          className="text-sm font-medium px-4 py-2 rounded-md bg-alert text-white hover:bg-alert/90 disabled:opacity-50 transition-all duration-200"
                         >
                           {busyId === r.id ? "Rejecting…" : "Confirm Rejection"}
                         </button>
@@ -156,7 +156,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
                             setRejectingId(null);
                             setRejectNote("");
                           }}
-                          className="text-sm font-medium px-4 py-2 rounded-md border border-line text-muted hover:text-ink transition-colors"
+                          className="text-sm font-medium px-4 py-2 rounded-md border border-line text-muted hover:text-ink transition-all duration-200"
                         >
                           Cancel
                         </button>
@@ -167,14 +167,14 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
                       <button
                         onClick={() => handleApprove(r.id)}
                         disabled={busyId === r.id}
-                        className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                        className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 disabled:opacity-50 transition-all duration-200"
                       >
                         {busyId === r.id ? "Approving…" : "Approve"}
                       </button>
                       <button
                         onClick={() => setRejectingId(r.id)}
                         disabled={busyId === r.id}
-                        className="text-sm font-medium px-4 py-2 rounded-md border border-alert/40 text-alert hover:bg-alertSoft transition-colors"
+                        className="text-sm font-medium px-4 py-2 rounded-md border border-alert/40 text-alert hover:bg-alertSoft transition-all duration-200"
                       >
                         Reject
                       </button>
@@ -197,7 +197,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
             </p>
             <button
               onClick={() => setCapacityPopup(null)}
-              className="w-full text-sm font-medium px-4 py-2 rounded-md bg-ink text-white hover:bg-ink/90 transition-colors"
+              className="w-full text-sm font-medium px-4 py-2 rounded-xl bg-ink text-white shadow-soft hover:bg-ink/90 hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
             >
               Got it
             </button>

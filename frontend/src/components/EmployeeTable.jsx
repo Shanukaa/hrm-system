@@ -46,7 +46,7 @@ export default function EmployeeTable({
           </thead>
           <tbody>
             {employees.map((e) => (
-              <tr key={e.empNo} className="border-t border-line hover:bg-paper/60 transition-colors">
+              <tr key={e.empNo} className="border-t border-line hover:bg-paper/60 transition-all duration-200">
                 <td className="px-4 py-3">
                   <input type="checkbox" checked={selected.has(e.empNo)} onChange={() => onToggleSelect(e.empNo)} />
                 </td>
@@ -62,14 +62,14 @@ export default function EmployeeTable({
                     <button
                       onClick={() => onDownloadPayslip(e.empNo)}
                       title="Download payslip"
-                      className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-accent hover:text-accent transition-colors"
+                      className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-accent hover:text-accent transition-all duration-200"
                     >
                       Payslip
                     </button>
                     <Link
                       to={`/employees/${encodeURIComponent(e.empNo)}/edit`}
                       title="Edit"
-                      className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-accent hover:text-accent transition-colors"
+                      className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-accent hover:text-accent transition-all duration-200"
                     >
                       Edit
                     </Link>
@@ -77,7 +77,7 @@ export default function EmployeeTable({
                       <button
                         onClick={() => onDelete(e.empNo)}
                         title="Delete"
-                        className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-alert hover:text-alert transition-colors"
+                        className="text-xs px-2.5 py-1.5 rounded border border-line hover:border-alert hover:text-alert transition-all duration-200"
                       >
                         Delete
                       </button>

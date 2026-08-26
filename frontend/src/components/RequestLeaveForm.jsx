@@ -45,7 +45,7 @@ export default function RequestLeaveForm({ balance, onSubmitted }) {
   const wouldExceed = balance && !balance.needsSetup && previewDays !== null && previewDays > balance.remaining;
 
   return (
-    <div className="bg-surface border border-line rounded-lg p-5 sm:p-6">
+    <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 sm:p-6">
       <h3 className="font-display text-base text-ink mb-4">Request Leave</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -56,7 +56,7 @@ export default function RequestLeaveForm({ balance, onSubmitted }) {
               required
               value={form.startDate}
               onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             />
           </label>
           <label className="block">
@@ -67,7 +67,7 @@ export default function RequestLeaveForm({ balance, onSubmitted }) {
               value={form.endDate}
               min={form.startDate || undefined}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-              className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             />
           </label>
         </div>
@@ -77,7 +77,7 @@ export default function RequestLeaveForm({ balance, onSubmitted }) {
             rows={3}
             value={form.reason}
             onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             placeholder="Briefly explain why you're requesting leave"
           />
         </label>
@@ -101,7 +101,7 @@ export default function RequestLeaveForm({ balance, onSubmitted }) {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full sm:w-auto text-sm font-medium px-5 py-2.5 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          className="w-full sm:w-auto text-sm font-medium px-5 py-2.5 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 disabled:opacity-60 transition-all duration-200"
         >
           {submitting ? "Submitting…" : "Submit Leave Request"}
         </button>
@@ -118,7 +118,7 @@ export default function RequestLeaveForm({ balance, onSubmitted }) {
             </p>
             <button
               onClick={() => setCapacityPopup(null)}
-              className="w-full text-sm font-medium px-4 py-2 rounded-md bg-ink text-white hover:bg-ink/90 transition-colors"
+              className="w-full text-sm font-medium px-4 py-2 rounded-xl bg-ink text-white shadow-soft hover:bg-ink/90 hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
             >
               Got it
             </button>

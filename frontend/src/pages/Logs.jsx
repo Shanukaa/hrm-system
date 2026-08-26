@@ -55,7 +55,7 @@ export default function Logs() {
             placeholder="Search by user, action, or details…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full max-w-md text-sm border border-line rounded-md px-3.5 py-2.5 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="w-full max-w-md text-sm border border-line rounded-xl px-3.5 py-2.5 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
           <p className="text-xs text-muted whitespace-nowrap">
             {filtered.length} of {logs.length} entries
@@ -65,7 +65,7 @@ export default function Logs() {
         {loading ? (
           <div className="py-16 text-center text-muted text-sm">Loading activity…</div>
         ) : (
-          <div className="bg-surface border border-line rounded-lg overflow-hidden">
+          <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs text-muted uppercase tracking-wide">

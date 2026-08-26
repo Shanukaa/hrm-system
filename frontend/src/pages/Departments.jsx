@@ -90,7 +90,7 @@ export default function Departments() {
         actions={
           <button
             onClick={openNew}
-            className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 transition-colors"
+            className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
           >
             + Add Department
           </button>
@@ -101,7 +101,7 @@ export default function Departments() {
         {error && <div className="border border-alert/40 bg-alertSoft text-alert text-sm rounded-md px-4 py-3">{error}</div>}
 
         {showForm && (
-          <form onSubmit={handleSave} className="bg-surface border border-line rounded-lg p-5 space-y-4">
+          <form onSubmit={handleSave} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 space-y-4">
             <h3 className="font-display text-base text-ink">{editing ? "Edit Department" : "New Department"}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <label className="block">
@@ -110,7 +110,7 @@ export default function Departments() {
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                  className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                   placeholder="e.g. Salon Operations"
                 />
               </label>
@@ -119,7 +119,7 @@ export default function Departments() {
                 <select
                   value={form.managerEmpNo}
                   onChange={(e) => setForm({ ...form, managerEmpNo: e.target.value })}
-                  className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                  className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 >
                   <option value="">Unassigned</option>
                   {employees.map((emp) => (
@@ -137,7 +137,7 @@ export default function Departments() {
                   value={form.maxConcurrentLeaves}
                   onChange={(e) => setForm({ ...form, maxConcurrentLeaves: e.target.value })}
                   placeholder="No limit"
-                  className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                  className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 />
               </label>
             </div>
@@ -146,14 +146,14 @@ export default function Departments() {
               <button
                 type="submit"
                 disabled={saving}
-                className="text-sm font-medium px-4 py-2 rounded-md bg-ink text-white hover:bg-ink/90 disabled:opacity-60 transition-colors"
+                className="text-sm font-medium px-4 py-2 rounded-xl bg-ink text-white shadow-soft hover:bg-ink/90 hover:shadow-card hover:-translate-y-0.5 disabled:opacity-60 transition-all duration-200"
               >
                 {saving ? "Saving…" : "Save"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="text-sm font-medium px-4 py-2 rounded-md border border-line text-muted hover:text-ink transition-colors"
+                className="text-sm font-medium px-4 py-2 rounded-md border border-line text-muted hover:text-ink transition-all duration-200"
               >
                 Cancel
               </button>
@@ -168,7 +168,7 @@ export default function Departments() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {departments.map((d) => (
-              <div key={d.id} className="bg-surface border border-line rounded-lg p-5 card-lift">
+              <div key={d.id} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 card-lift">
                 <div className="flex items-start justify-between">
                   <h3 className="font-display text-base text-ink">{d.name}</h3>
                   <div className="flex gap-1.5 shrink-0">

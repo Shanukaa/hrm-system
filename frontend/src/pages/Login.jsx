@@ -29,13 +29,15 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-paper flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+      <div className="w-full max-w-sm relative">
         <div className="flex items-center justify-center mb-8 animate-fade-in-up">
-          <img src={logo} alt="HairSkiin Sri Lanka" className="h-12 w-auto object-contain" />
+          <img src={logo} alt="HairSkiin Sri Lanka" className="h-12 w-auto object-contain drop-shadow-sm" />
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-lg p-7 space-y-4 shadow-sm animate-fade-in-up" style={{ animationDelay: "80ms" }}>
+        <form onSubmit={handleSubmit} className="bg-surface border border-line rounded-2xl shadow-card p-7 space-y-4 animate-fade-in-up" style={{ animationDelay: "80ms" }}>
           <div>
             <h1 className="font-display text-lg text-ink mb-1">Sign in</h1>
             <p className="text-sm text-muted">Enter your account details to continue.</p>
@@ -55,7 +57,7 @@ export default function Login() {
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full text-sm border border-line rounded-md px-3.5 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="w-full text-sm border border-line rounded-xl px-3.5 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               placeholder="you@company.com"
             />
           </div>
@@ -67,7 +69,7 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full text-sm border border-line rounded-md px-3.5 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="w-full text-sm border border-line rounded-xl px-3.5 py-2.5 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               placeholder="••••••••"
             />
           </div>
@@ -75,7 +77,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full text-sm font-medium px-4 py-2.5 rounded-md bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+            className="w-full text-sm font-medium px-4 py-2.5 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
           >
             {submitting ? "Signing in…" : "Sign in"}
           </button>

@@ -83,7 +83,7 @@ export default function Users() {
         actions={
           <button
             onClick={() => setShowForm((s) => !s)}
-            className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 transition-colors"
+            className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
           >
             {showForm ? "Cancel" : "+ Add User"}
           </button>
@@ -98,7 +98,7 @@ export default function Users() {
         {showForm && (
           <form
             onSubmit={handleCreate}
-            className="bg-surface border border-line rounded-lg p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
+            className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
           >
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted">Full name</label>
@@ -106,7 +106,7 @@ export default function Users() {
                 required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               />
             </div>
             <div className="space-y-1.5">
@@ -116,7 +116,7 @@ export default function Users() {
                 required
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               />
             </div>
             <div className="space-y-1.5">
@@ -127,7 +127,7 @@ export default function Users() {
                 minLength={6}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               />
             </div>
             <div className="space-y-1.5">
@@ -135,7 +135,7 @@ export default function Users() {
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
               >
                 {ROLES.map((r) => (
                   <option key={r} value={r}>
@@ -152,7 +152,7 @@ export default function Users() {
                   required
                   value={form.empNo}
                   onChange={(e) => setForm({ ...form, empNo: e.target.value })}
-                  className="w-full text-sm border border-line rounded-md px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                  className="w-full text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
                 >
                   <option value="">Select an employee…</option>
                   {employees.map((emp) => (
@@ -179,7 +179,7 @@ export default function Users() {
               <button
                 type="submit"
                 disabled={saving}
-                className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+                className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
               >
                 {saving ? "Creating…" : "Create user"}
               </button>
@@ -190,7 +190,7 @@ export default function Users() {
         {loading ? (
           <div className="py-16 text-center text-muted text-sm">Loading users…</div>
         ) : (
-          <div className="bg-surface border border-line rounded-lg overflow-hidden">
+          <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs text-muted uppercase tracking-wide">
@@ -214,7 +214,7 @@ export default function Users() {
                         value={u.role}
                         disabled={u.id === me.id}
                         onChange={(e) => handleRoleChange(u, e.target.value)}
-                        className="text-sm border border-line rounded-md px-2 py-1.5 bg-paper disabled:opacity-50"
+                        className="text-sm border border-line rounded-xl px-2 py-1.5 bg-paper disabled:opacity-50"
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>

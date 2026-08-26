@@ -5,6 +5,27 @@
 body {
   font-family: "Inter", system-ui, sans-serif;
   color: #161c27;
+  background-color: #eef0f1;
+  background-image: radial-gradient(circle at 0% 0%, rgba(168, 129, 60, 0.05), transparent 45%),
+    radial-gradient(circle at 100% 0%, rgba(168, 129, 60, 0.04), transparent 40%);
+  background-attachment: fixed;
+}
+
+/* Scrollbars: slim + on-brand rather than the default chunky OS scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8cdb2;
+  border-radius: 999px;
+  border: 2px solid #eef0f1;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8813c;
 }
 
 .font-nums {
@@ -56,4 +77,10 @@ body {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* Focus rings that read clearly against the paper background, for keyboard nav */
+:focus-visible {
+  outline: 2px solid #a8813c;
+  outline-offset: 2px;
 }

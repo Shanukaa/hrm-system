@@ -1,6 +1,6 @@
 export default function ProfileCard({ employee, profile, departmentName }) {
   return (
-    <div className="bg-surface border border-line rounded-lg p-5 sm:p-6">
+    <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 sm:p-6">
       <h3 className="font-display text-base text-ink mb-4">My Profile</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 text-sm">
         <Row label="Name" value={employee?.employeeName} />

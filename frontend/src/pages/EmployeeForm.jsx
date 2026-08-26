@@ -96,7 +96,7 @@ export default function EmployeeForm() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             {SECTIONS.map((section) => (
-              <div key={section.key} className="bg-surface border border-line rounded-lg p-5">
+              <div key={section.key} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5">
                 <h3 className="font-display text-base text-ink mb-4">{section.title}</h3>
                 <div className="grid grid-cols-2 gap-4">
                   {FIELDS.filter((f) => f.section === section.key).map((f) => (
@@ -159,14 +159,14 @@ export default function EmployeeForm() {
               <button
                 type="submit"
                 disabled={saving}
-                className="mt-6 w-full bg-accent hover:bg-accent/90 disabled:opacity-60 text-white text-sm font-medium py-2.5 rounded-md transition-colors"
+                className="mt-6 w-full bg-accent hover:bg-accent/90 disabled:opacity-60 text-white text-sm font-medium py-2.5 rounded-md transition-all duration-200"
               >
                 {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Employee"}
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/")}
-                className="mt-2 w-full text-white/60 hover:text-white text-sm py-2 transition-colors"
+                className="mt-2 w-full text-white/60 hover:text-white text-sm py-2 transition-all duration-200"
               >
                 Cancel
               </button>

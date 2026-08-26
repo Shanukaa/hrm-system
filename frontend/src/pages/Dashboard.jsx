@@ -90,13 +90,13 @@ export default function Dashboard() {
           <>
             <button
               onClick={handleBulkPayslips}
-              className="text-sm font-medium px-4 py-2 rounded-md border border-line hover:border-accent hover:text-accent transition-colors"
+              className="text-sm font-medium px-4 py-2 rounded-md border border-line hover:border-accent hover:text-accent transition-all duration-200"
             >
               {selected.size > 0 ? `Download ${selected.size} Payslip(s)` : "Download All Payslips"}
             </button>
             <Link
               to="/employees/new"
-              className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 transition-colors"
+              className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
             >
               + Add Employee
             </Link>
@@ -131,7 +131,7 @@ export default function Dashboard() {
             placeholder="Search by name, EMP no, designation, cost centre…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full max-w-md text-sm border border-line rounded-md px-3.5 py-2.5 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="w-full max-w-md text-sm border border-line rounded-xl px-3.5 py-2.5 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
           <p className="text-xs text-muted whitespace-nowrap">
             {filtered.length} of {employees.length} employees

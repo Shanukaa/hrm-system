@@ -52,7 +52,7 @@ export default function Import() {
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          className={`border-2 border-dashed rounded-lg py-14 text-center cursor-pointer transition-colors ${
+          className={`border-2 border-dashed rounded-lg py-14 text-center cursor-pointer transition-all duration-200 ${
             dragOver ? "border-accent bg-accentSoft/50" : "border-line bg-surface hover:border-accent/50"
           }`}
         >
@@ -70,7 +70,7 @@ export default function Import() {
         </div>
 
         {file && (
-          <div className="flex items-center justify-between bg-surface border border-line rounded-lg px-5 py-4">
+          <div className="flex items-center justify-between bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card px-5 py-4">
             <div>
               <p className="text-sm font-medium text-ink">{file.name}</p>
               <p className="text-xs text-muted mt-0.5">{(file.size / 1024).toFixed(1)} KB</p>
@@ -78,7 +78,7 @@ export default function Import() {
             <button
               onClick={handleUpload}
               disabled={uploading}
-              className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 disabled:opacity-60 transition-all duration-200"
             >
               {uploading ? `Uploading… ${progress}%` : "Import"}
             </button>
@@ -109,7 +109,7 @@ export default function Import() {
           </div>
         )}
 
-        <div className="bg-surface border border-line rounded-lg px-5 py-4">
+        <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card px-5 py-4">
           <p className="text-sm font-medium text-ink mb-2">File format</p>
           <p className="text-sm text-muted leading-relaxed">
             The first row should be column headers matching the payroll table (EMP NO, Employee Name,

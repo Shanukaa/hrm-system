@@ -52,7 +52,7 @@ export default function Payslips() {
           <button
             onClick={handleBulk}
             disabled={busy}
-            className="text-sm font-medium px-4 py-2 rounded-md bg-accent text-white hover:bg-accent/90 disabled:opacity-60 transition-colors"
+            className="text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 disabled:opacity-60 transition-all duration-200"
           >
             {busy ? "Preparing…" : selected.size > 0 ? `Download ${selected.size} Payslip(s)` : "Download All"}
           </button>
@@ -66,7 +66,7 @@ export default function Payslips() {
             placeholder="Search employee…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="text-sm border border-line rounded-md px-3.5 py-2.5 bg-surface w-72 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="text-sm border border-line rounded-xl px-3.5 py-2.5 bg-surface w-72 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
           <label className="flex items-center gap-2 text-sm text-muted">
             Pay period
@@ -74,7 +74,7 @@ export default function Payslips() {
               type="text"
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="text-sm border border-line rounded-md px-3 py-2 bg-surface w-40 font-nums focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="text-sm border border-line rounded-xl px-3 py-2 bg-surface w-40 font-nums focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             />
           </label>
           <label className="flex items-center gap-2 text-sm text-muted">
@@ -82,7 +82,7 @@ export default function Payslips() {
             <select
               value={format}
               onChange={(e) => setFormat(e.target.value)}
-              className="text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             >
               <option value="detailed">Detailed</option>
               <option value="simple">Simple (bank advice style)</option>
@@ -111,7 +111,7 @@ export default function Payslips() {
                 </div>
                 <button
                   onClick={() => downloadPayslip(e.empNo, period, format)}
-                  className="text-xs px-3 py-1.5 rounded border border-line hover:border-accent hover:text-accent transition-colors"
+                  className="text-xs px-3 py-1.5 rounded border border-line hover:border-accent hover:text-accent transition-all duration-200"
                 >
                   Download PDF
                 </button>

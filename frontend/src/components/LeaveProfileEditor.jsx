@@ -71,7 +71,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
   })();
 
   return (
-    <div className="bg-surface border border-line rounded-lg p-5">
+    <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5">
       <h3 className="font-display text-base text-ink mb-1">Leave Profile</h3>
       <p className="text-xs text-muted mb-4">
         Controls this employee's monthly / annual leave entitlement on their self-service dashboard.
@@ -84,7 +84,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
             type="date"
             value={form.joinDate}
             onChange={(e) => setForm({ ...form, joinDate: e.target.value })}
-            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
         </label>
 
@@ -93,7 +93,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
           <select
             value={form.employmentType}
             onChange={(e) => setForm({ ...form, employmentType: e.target.value })}
-            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           >
             <option value="probation">Probation</option>
             <option value="permanent">Permanent</option>
@@ -106,7 +106,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
             <select
               value={form.probationMonths}
               onChange={(e) => setForm({ ...form, probationMonths: e.target.value })}
-              className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             >
               {PROBATION_OPTIONS.map((m) => (
                 <option key={m} value={m}>
@@ -122,7 +122,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
           <select
             value={form.departmentId}
             onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
-            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           >
             <option value="">Unassigned</option>
             {departments.map((d) => (
@@ -142,7 +142,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
             type="date"
             value={form.birthDate}
             onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
           <span className="text-[11px] text-muted mt-1 block">Used for the company-wide birthday shout-out.</span>
         </label>
@@ -154,7 +154,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
             value={form.managerEmpNo}
             onChange={(e) => setForm({ ...form, managerEmpNo: e.target.value })}
             placeholder="Only needed if this employee has no department"
-            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
         </label>
 
@@ -174,7 +174,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
             value={form.annualLeaveDays}
             onChange={(e) => setForm({ ...form, annualLeaveDays: e.target.value })}
             placeholder="Leave blank until you're ready to set it (default 14)"
-            className="mt-1 w-full text-sm border border-line rounded-md px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
           <span className="text-[11px] text-muted mt-1 block">
             Until this is set, an employee who has completed a year as permanent gets a fallback of 6 leaves/month.
@@ -194,7 +194,7 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="text-sm font-medium px-4 py-2 rounded-md bg-ink text-white hover:bg-ink/90 disabled:opacity-60 transition-colors"
+          className="text-sm font-medium px-4 py-2 rounded-xl bg-ink text-white shadow-soft hover:bg-ink/90 hover:shadow-card hover:-translate-y-0.5 disabled:opacity-60 transition-all duration-200"
         >
           {saving ? "Saving…" : "Save Leave Profile"}
         </button>

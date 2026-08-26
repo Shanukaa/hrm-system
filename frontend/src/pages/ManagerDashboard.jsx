@@ -102,7 +102,7 @@ export default function ManagerDashboard() {
     <div className="space-y-6">
       {error && <div className="border border-alert/40 bg-alertSoft text-alert text-sm rounded-md px-4 py-3">{error}</div>}
       {department ? (
-        <div className="bg-surface border border-line rounded-lg p-5 sm:p-6">
+        <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 sm:p-6">
           <h3 className="font-display text-base text-ink mb-1">{department.name}</h3>
           <p className="text-sm text-muted">
             {deptEmployees.length} team member{deptEmployees.length === 1 ? "" : "s"} ·{" "}
