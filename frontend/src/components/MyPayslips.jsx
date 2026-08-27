@@ -1,81 +1,99 @@
-import { useState } from "react";
-import { downloadPayslip } from "../api/client.js";
+import { useEffect, useMemo, useState } from "react";
+import { downloadPayslip, getLeaveProfile } from "../api/client.js";
+import { usePagination } from "../hooks/usePagination.js";
+import Pagination from "./Pagination.jsx";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 
-export default function MyPayslips({ empNo }) {
+/** Available payslips up to the current month only — nothing in the future can exist yet. */
+function buildAvailablePeriods(earliestDate) {
   const now = new Date();
-  const [month, setMonth] = useState(now.getMonth());
-  const [year, setYear] = useState(now.getFullYear());
-  const [format, setFormat] = useState("detailed");
-  const [busy, setBusy] = useState(false);
+  const periods = [];
+  const cursor = new Date(now.getFullYear(), now.getMonth(), 1);
+  const earliest = earliestDate ? new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1) : null;
+  // Cap at 10 years back regardless, so a very old join date doesn't produce an endless list.
+  const hardStop = new Date(now.getFullYear() - 10, now.getMonth(), 1);
 
-  const years = Array.from({ length: 6 }, (_, i) => now.getFullYear() - i);
-  const period = `${MONTH_NAMES[month]} ${year}`;
+  while (cursor >= (earliest && earliest > hardStop ? earliest : hardStop)) {
+    periods.push({ year: cursor.getFullYear(), month: cursor.getMonth(), label: `${MONTH_NAMES[cursor.getMonth()]} ${cursor.getFullYear()}` });
+    cursor.setMonth(cursor.getMonth() - 1);
+  }
+  return periods;
+}
 
-  async function handleDownload() {
-    setBusy(true);
+export default function MyPayslips({ empNo }) {
+  const [joinDate, setJoinDate] = useState(null);
+  const [busyPeriod, setBusyPeriod] = useState(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    getLeaveProfile(empNo)
+      .then((p) => setJoinDate(p?.joinDate ? new Date(p.joinDate) : null))
+      .catch(() => {});
+  }, [empNo]);
+
+  const allPeriods = useMemo(() => buildAvailablePeriods(joinDate), [joinDate]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return allPeriods;
+    const q = search.trim().toLowerCase();
+    return allPeriods.filter((p) => p.label.toLowerCase().includes(q));
+  }, [allPeriods, search]);
+
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, 8);
+
+  async function handleDownload(period) {
+    setBusyPeriod(period.label);
     try {
-      await downloadPayslip(empNo, period, format);
+      await downloadPayslip(empNo, period.label, "simple");
     } finally {
-      setBusy(false);
+      setBusyPeriod(null);
     }
   }
 
   return (
     <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 sm:p-6">
-      <h3 className="font-display text-base text-ink mb-4">My Payslips</h3>
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="block">
-          <span className="text-xs font-medium text-muted">Month</span>
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className="mt-1 text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-          >
-            {MONTH_NAMES.map((m, i) => (
-              <option key={m} value={i}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium text-muted">Year</span>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="mt-1 text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs font-medium text-muted">Format</span>
-          <select
-            value={format}
-            onChange={(e) => setFormat(e.target.value)}
-            className="mt-1 text-sm border border-line rounded-xl px-3 py-2 bg-paper focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-          >
-            <option value="detailed">Detailed</option>
-            <option value="simple">Simple</option>
-          </select>
-        </label>
-        <button
-          onClick={handleDownload}
-          disabled={busy}
-          className="text-sm font-medium px-5 py-2.5 rounded-xl bg-accent text-white shadow-soft hover:bg-accentDark hover:shadow-card hover:-translate-y-0.5 disabled:opacity-60 transition-all duration-200"
-        >
-          {busy ? "Preparing…" : `Download ${period}`}
-        </button>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <div>
+          <h3 className="font-display text-base text-ink">My Payslips</h3>
+          <p className="text-xs text-muted mt-0.5">Available up to the current month — search by month or year.</p>
+        </div>
+        <input
+          type="text"
+          placeholder="Search e.g. “August” or “2026”"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          className="text-sm border border-line rounded-xl px-3.5 py-2 bg-paper w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+        />
       </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-muted py-6 text-center">No payslips match your search.</p>
+      ) : (
+        <>
+          <div className="divide-y divide-line border-t border-line">
+            {pageItems.map((p) => (
+              <div key={p.label} className="flex items-center justify-between py-3">
+                <p className="text-sm text-ink font-medium">{p.label}</p>
+                <button
+                  onClick={() => handleDownload(p)}
+                  disabled={busyPeriod === p.label}
+                  className="text-xs font-medium px-3.5 py-2 rounded-lg border border-line hover:border-accent hover:text-accent disabled:opacity-60 transition-all duration-150"
+                >
+                  {busyPeriod === p.label ? "Preparing…" : "Download PDF"}
+                </button>
+              </div>
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+        </>
+      )}
     </div>
   );
 }

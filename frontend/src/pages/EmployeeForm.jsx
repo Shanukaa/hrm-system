@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import { FIELDS, calculatePayroll, money } from "../api/fields.js";
-import { createEmployee, updateEmployee, getEmployee, getLeaveProfile, updateLeaveProfile } from "../api/client.js";
+import { createEmployee, updateEmployee, getEmployee, getLeaveProfile, updateLeaveProfile, updateEmployeeBirthDate } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import LeaveProfileEditor from "../components/LeaveProfileEditor.jsx";
 
@@ -22,12 +22,17 @@ export default function EmployeeForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canManageLeaveProfile = ["admin", "hr_manager"].includes(user?.role);
+  // Any role that can edit employee records can also set date of birth —
+  // it isn't gated behind full leave-profile setup, so every employee's
+  // birthday can show in notifications regardless of their leave status.
+  const canEditBirthDate = ["admin", "hr_manager", "hr_executive"].includes(user?.role);
 
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [leaveProfile, setLeaveProfile] = useState(null);
+  const [birthDate, setBirthDate] = useState("");
 
   useEffect(() => {
     if (!isEdit) return;
@@ -35,9 +40,12 @@ export default function EmployeeForm() {
       .then((data) => setForm({ ...emptyForm, ...data }))
       .catch(() => setError("Could not load this employee."))
       .finally(() => setLoading(false));
-    if (canManageLeaveProfile) {
+    if (canEditBirthDate) {
       getLeaveProfile(empNo)
-        .then(setLeaveProfile)
+        .then((p) => {
+          setLeaveProfile(p);
+          setBirthDate(p?.birthDate || "");
+        })
         .catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -46,6 +54,7 @@ export default function EmployeeForm() {
   async function handleLeaveProfileSave(data) {
     const updated = await updateLeaveProfile(empNo, data);
     setLeaveProfile(updated);
+    setBirthDate(updated?.birthDate || "");
   }
 
   const computed = useMemo(() => calculatePayroll(form), [form]);
@@ -57,10 +66,17 @@ export default function EmployeeForm() {
     setSaving(true);
     setError("");
     try {
+      let targetEmpNo = empNo;
       if (isEdit) {
         await updateEmployee(empNo, form);
       } else {
-        await createEmployee(form);
+        const created = await createEmployee(form);
+        targetEmpNo = created.empNo;
+      }
+      if (canEditBirthDate && targetEmpNo) {
+        await updateEmployeeBirthDate(targetEmpNo, birthDate || null).catch(() => {
+          // Non-fatal — the employee record itself saved fine either way.
+        });
       }
       navigate("/");
     } catch (err) {
@@ -128,6 +144,22 @@ export default function EmployeeForm() {
                 </div>
               </div>
             ))}
+
+            {canEditBirthDate && (
+              <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5">
+                <h3 className="font-display text-base text-ink mb-1">Personal Details</h3>
+                <p className="text-xs text-muted mb-4">Used for the company-wide birthday notification — every employee's birthday shows automatically.</p>
+                <label className="block max-w-xs">
+                  <span className="text-xs font-medium text-muted">Date of birth</span>
+                  <input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                  />
+                </label>
+              </div>
+            )}
 
             {isEdit && canManageLeaveProfile && (
               <LeaveProfileEditor empNo={empNo} profile={leaveProfile} onSave={handleLeaveProfileSave} />

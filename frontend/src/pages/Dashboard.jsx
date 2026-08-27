@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import StatCard from "../components/StatCard.jsx";
 import EmployeeTable from "../components/EmployeeTable.jsx";
+import Pagination from "../components/Pagination.jsx";
+import { usePagination } from "../hooks/usePagination.js";
 import {
   getEmployees,
   getDashboardSummary,
@@ -55,6 +57,8 @@ export default function Dashboard() {
     );
   }, [employees, query]);
 
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, 12);
+
   const toggleSelect = (empNo) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -65,8 +69,8 @@ export default function Dashboard() {
 
   const toggleSelectAll = () => {
     setSelected((prev) => {
-      if (filtered.every((e) => prev.has(e.empNo))) return new Set();
-      return new Set(filtered.map((e) => e.empNo));
+      if (pageItems.every((e) => prev.has(e.empNo))) return new Set();
+      return new Set([...prev, ...pageItems.map((e) => e.empNo)]);
     });
   };
 
@@ -130,7 +134,10 @@ export default function Dashboard() {
             type="text"
             placeholder="Search by name, EMP no, designation, cost centre…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             className="w-full max-w-md text-sm border border-line rounded-xl px-3.5 py-2.5 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
           <p className="text-xs text-muted whitespace-nowrap">
@@ -141,14 +148,17 @@ export default function Dashboard() {
         {loading ? (
           <div className="py-16 text-center text-muted text-sm">Loading payroll ledger…</div>
         ) : (
-          <EmployeeTable
-            employees={filtered}
-            selected={selected}
-            onToggleSelect={toggleSelect}
-            onToggleSelectAll={toggleSelectAll}
-            onDelete={handleDelete}
-            onDownloadPayslip={(empNo) => downloadPayslip(empNo)}
-          />
+          <>
+            <EmployeeTable
+              employees={pageItems}
+              selected={selected}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={toggleSelectAll}
+              onDelete={handleDelete}
+              onDownloadPayslip={(empNo) => downloadPayslip(empNo)}
+            />
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+          </>
         )}
       </div>
     </>

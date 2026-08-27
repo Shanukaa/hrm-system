@@ -105,6 +105,12 @@ export const getLeaveProfile = (empNo) => api.get(`/leaves/profile/${encodeURICo
 export const updateLeaveProfile = (empNo, data) =>
   api.put(`/leaves/profile/${encodeURIComponent(empNo)}`, data).then((r) => r.data);
 
+// Lightweight endpoint any HR role that can edit employees can use — doesn't
+// require the fuller leave-profile permission, so date of birth can be set
+// for every employee regardless of their leave setup.
+export const updateEmployeeBirthDate = (empNo, birthDate) =>
+  api.put(`/employees/${encodeURIComponent(empNo)}/birthdate`, { birthDate }).then((r) => r.data);
+
 export const getLeaveBalance = (empNo) =>
   api.get("/leaves/balance", { params: empNo ? { empNo } : {} }).then((r) => r.data);
 

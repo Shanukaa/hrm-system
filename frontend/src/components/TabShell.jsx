@@ -1,14 +1,19 @@
 import { useState } from "react";
 
-/** A horizontal, mobile-scrollable tab bar with content below — used by both self-service dashboards. */
+/**
+ * A vertical navigation rail alongside the active tab's content — used by
+ * both self-service dashboards. Collapses to a horizontal scrollable strip
+ * on small screens, where a vertical rail would eat too much width.
+ */
 export default function TabShell({ tabs, defaultTab }) {
   const [active, setActive] = useState(defaultTab || tabs[0]?.key);
   const activeTab = tabs.find((t) => t.key === active) || tabs[0];
 
   return (
-    <div>
-      <div className="border-b border-line bg-paper/80 backdrop-blur-sm sticky top-0 z-10 overflow-x-auto">
-        <div className="flex gap-1 px-4 sm:px-6 lg:px-8 min-w-max">
+    <div className="flex flex-col md:flex-row">
+      {/* Mobile: horizontal scrollable strip */}
+      <div className="md:hidden border-b border-line bg-paper/80 backdrop-blur-sm overflow-x-auto">
+        <div className="flex gap-1 px-4 min-w-max">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -30,7 +35,34 @@ export default function TabShell({ tabs, defaultTab }) {
           ))}
         </div>
       </div>
-      <div className="p-4 sm:p-6 lg:p-8 animate-fade-in-up" key={activeTab?.key}>
+
+      {/* Desktop: vertical rail */}
+      <nav className="hidden md:flex flex-col w-56 shrink-0 border-r border-line bg-paper/60 px-3 py-6 gap-1">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActive(t.key)}
+            className={`flex items-center justify-between text-sm font-medium px-3.5 py-2.5 rounded-xl text-left transition-all duration-150 ${
+              activeTab?.key === t.key
+                ? "bg-accent text-white shadow-soft"
+                : "text-muted hover:text-ink hover:bg-surface"
+            }`}
+          >
+            {t.label}
+            {t.badge > 0 && (
+              <span
+                className={`text-[10px] rounded-full px-1.5 py-0.5 ${
+                  activeTab?.key === t.key ? "bg-white/25 text-white" : "bg-accent text-white"
+                }`}
+              >
+                {t.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
+
+      <div className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 animate-fade-in-up" key={activeTab?.key}>
         {activeTab?.content}
       </div>
     </div>

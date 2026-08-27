@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
+import Pagination from "../components/Pagination.jsx";
+import { usePagination } from "../hooks/usePagination.js";
 import { getDepartments, createDepartment, updateDepartment, deleteDepartment, getEmployees } from "../api/client.js";
 
 export default function Departments() {
@@ -12,6 +14,8 @@ export default function Departments() {
   const [form, setForm] = useState({ name: "", managerEmpNo: "", maxConcurrentLeaves: "" });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(departments, 9);
 
   async function load() {
     setLoading(true);
@@ -166,35 +170,37 @@ export default function Departments() {
         ) : departments.length === 0 ? (
           <p className="text-sm text-muted">No departments yet. Add one to get started.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {departments.map((d) => (
-              <div key={d.id} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 card-lift">
-                <div className="flex items-start justify-between">
-                  <h3 className="font-display text-base text-ink">{d.name}</h3>
-                  <div className="flex gap-1.5 shrink-0">
-                    <button onClick={() => openEdit(d)} className="text-xs text-muted hover:text-ink px-1.5 py-1">
-                      Edit
-                    </button>
-                    <button onClick={() => handleDelete(d)} className="text-xs text-muted hover:text-alert px-1.5 py-1">
-                      Delete
-                    </button>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pageItems.map((d) => (
+                <div key={d.id} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-5 card-lift">
+                  <div className="flex items-start justify-between">
+                    <h3 className="font-display text-base text-ink">{d.name}</h3>
+                    <div className="flex gap-1.5 shrink-0">
+                      <button onClick={() => openEdit(d)} className="text-xs text-muted hover:text-ink px-1.5 py-1">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDelete(d)} className="text-xs text-muted hover:text-alert px-1.5 py-1">
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-1.5 text-sm">
+                    <p className="text-muted">
+                      Manager: <span className="text-ink">{d.managerName || "Unassigned"}</span>
+                    </p>
+                    <p className="text-muted">
+                      Employees: <span className="text-ink font-mono">{d.employeeCount}</span>
+                    </p>
+                    <p className="text-muted">
+                      Max simultaneous leave: <span className="text-ink font-mono">{d.maxConcurrentLeaves ?? "No limit"}</span>
+                    </p>
                   </div>
                 </div>
-                <div className="mt-3 space-y-1.5 text-sm">
-                  <p className="text-muted">
-                    Manager: <span className="text-ink">{d.managerName || "Unassigned"}</span>
-                  </p>
-                  <p className="text-muted">
-                    Employees: <span className="text-ink font-mono">{d.employeeCount}</span>
-                  </p>
-                  <p className="text-muted">
-                    Max simultaneous leave:{" "}
-                    <span className="text-ink font-mono">{d.maxConcurrentLeaves ?? "No limit"}</span>
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
+          </>
         )}
       </div>
     </>

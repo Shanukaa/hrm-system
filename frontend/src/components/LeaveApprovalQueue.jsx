@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAllLeaveRequests, decideLeaveRequest } from "../api/client.js";
+import Pagination from "./Pagination.jsx";
+import { usePagination } from "../hooks/usePagination.js";
 
 const STATUS_STYLES = {
   pending: "bg-accentSoft text-accent",
@@ -37,6 +39,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
 
   useEffect(() => {
     load();
+    setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -45,6 +48,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
     [requests, filterEmpNos]
   );
   const pendingCount = useMemo(() => visible.filter((r) => r.status === "pending").length, [visible]);
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(visible, 8);
 
   async function handleApprove(id) {
     setBusyId(id);
@@ -101,7 +105,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {visible.map((r) => (
+          {pageItems.map((r) => (
             <div key={r.id} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-4 sm:p-5">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
@@ -185,6 +189,10 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
             </div>
           ))}
         </div>
+      )}
+
+      {!loading && visible.length > 0 && (
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
       )}
 
       {capacityPopup && (

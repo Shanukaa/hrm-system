@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
+import Pagination from "../components/Pagination.jsx";
+import { usePagination } from "../hooks/usePagination.js";
 import { getUsers, createUser, updateUser, deleteUser, getEmployees } from "../api/client.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
@@ -23,6 +25,8 @@ export default function Users() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "hr_executive", empNo: "" });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(users, 10);
 
   async function load() {
     setLoading(true);
@@ -204,7 +208,7 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
+                {pageItems.map((u) => (
                   <tr key={u.id} className="border-b border-line last:border-0">
                     <td className="px-4 py-3 text-ink">{u.name}</td>
                     <td className="px-4 py-3 text-muted">{u.email}</td>
@@ -264,6 +268,7 @@ export default function Users() {
             </table>
           </div>
         )}
+        {!loading && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />}
       </div>
     </>
   );

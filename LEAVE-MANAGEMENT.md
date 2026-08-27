@@ -217,3 +217,55 @@ Again all automatic on startup:
 4. Create the manager's login (Users → role `manager`, linked to their EMP
    No) the same way you'd create an `employee` login.
 
+---
+
+# Round 3 — Payslip availability, pagination, design polish, birthdays for everyone
+
+## Payslips: available list instead of free typing
+
+Self-service payslips (employee/manager dashboard) now show an **available
+payslips list** — every month from the employee's join date (or a sensible
+fallback if that isn't set) up to the current month, never into the future,
+searchable by typing a month or year. There's no free-text period field
+anymore — you browse and download, you don't type a date and hope it's
+valid.
+
+On the admin **Payslips** (Generate PDF) page, the pay period is now picked
+from a calendar-style month/year popover — click, don't type — and it also
+won't let you pick a future month. The "Detailed" payslip format has been
+removed entirely; both the self-service and admin pages now always generate
+the simple, bank-advice-style PDF.
+
+## Pagination everywhere
+
+Every page with a data list (Dashboard's employee table, Users, Activity
+Log, Departments, the leave approval queue, "My Payslips", "My Leave
+Requests") now paginates instead of rendering the full list at once. This is
+client-side pagination — the full list is still fetched once, then sliced
+into pages — which keeps things simple and fast for the list sizes this app
+deals with. If any of these lists grows into the thousands, that's the point
+to switch to server-side (limit/offset) pagination in the API.
+
+## Vertical navigation for self-service dashboards
+
+The employee/manager dashboards' tab bar is now a vertical rail on desktop
+(matching how most HR portals present these sections), collapsing to a
+horizontal scrollable strip on narrow screens where a vertical rail would
+eat too much width. **Leave Balance** and **Request Leave** are now a single
+combined tab — you see your balance right above the request form instead of
+switching between two separate screens.
+
+## Every employee's birthday now shows
+
+Previously, birthdays only showed for employees who already had a full
+**Leave Profile** row (department, join date, etc.) — which meant anyone HR
+hadn't gotten around to setting up for leave was silently invisible to the
+birthday notification, even if their birthday was the only thing anyone
+wanted recorded. Date of birth is now a standalone field on the main
+**Employee** form (visible to any role that can edit employees — admin, HR
+manager, and HR executive), captured the same time you create or edit an
+employee, completely independent of whether their leave policy has been set
+up. A new lightweight `PUT /api/employees/:empNo/birthdate` endpoint backs
+this — it doesn't require the fuller leave-profile permission, so HR
+executives (who can't touch leave policy) can still record birthdays.
+

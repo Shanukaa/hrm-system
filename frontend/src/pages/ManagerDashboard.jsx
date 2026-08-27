@@ -143,14 +143,18 @@ export default function ManagerDashboard() {
     { key: "calendar", label: "Calendar", content: calendarTab },
     { key: "department", label: "Department", badge: pendingCount, content: departmentTab },
     { key: "payslips", label: "Payslips", content: <MyPayslips empNo={empNo} /> },
-    { key: "balance", label: "Leave Balance", content: <LeaveBalanceCard balance={balance} /> },
     {
-      key: "request",
-      label: "Request Leave",
-      content: !balance?.needsSetup ? (
-        <RequestLeaveForm balance={balance} onSubmitted={loadAll} />
-      ) : (
-        <p className="text-sm text-muted">Your leave profile hasn't been set up yet — contact HR before requesting leave.</p>
+      key: "leave",
+      label: "Leave Balance & Request",
+      content: (
+        <div className="space-y-6">
+          <LeaveBalanceCard balance={balance} />
+          {!balance?.needsSetup ? (
+            <RequestLeaveForm balance={balance} onSubmitted={loadAll} />
+          ) : (
+            <p className="text-sm text-muted">Your leave profile hasn't been set up yet — contact HR before requesting leave.</p>
+          )}
+        </div>
       ),
     },
     { key: "myrequests", label: "My Leave Requests", content: <MyLeaveHistory requests={requests} /> },

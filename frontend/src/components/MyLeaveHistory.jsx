@@ -1,3 +1,6 @@
+import Pagination from "./Pagination.jsx";
+import { usePagination } from "../hooks/usePagination.js";
+
 const STATUS_STYLES = {
   pending: "bg-accentSoft text-accent",
   approved: "bg-emerald-100 text-emerald-700",
@@ -6,6 +9,8 @@ const STATUS_STYLES = {
 
 /** Shows the last N months (default 3) of an employee/manager's own leave requests. */
 export default function MyLeaveHistory({ requests }) {
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(requests, 8);
+
   return (
     <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card overflow-hidden">
       <h3 className="font-display text-base text-ink px-5 sm:px-6 pt-5 sm:pt-6 pb-4">My Leave Requests (last 3 months)</h3>
@@ -25,7 +30,7 @@ export default function MyLeaveHistory({ requests }) {
               </tr>
             </thead>
             <tbody>
-              {requests.map((r) => (
+              {pageItems.map((r) => (
                 <tr key={r.id} className="border-b border-line last:border-0 align-top">
                   <td className="px-6 py-3 text-ink whitespace-nowrap">
                     {r.startDate} → {r.endDate}
@@ -45,7 +50,7 @@ export default function MyLeaveHistory({ requests }) {
           </table>
 
           <div className="md:hidden divide-y divide-line border-t border-line">
-            {requests.map((r) => (
+            {pageItems.map((r) => (
               <div key={r.id} className="px-5 py-4 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-ink">
@@ -61,6 +66,10 @@ export default function MyLeaveHistory({ requests }) {
                 {r.reviewNote && <p className="text-xs text-muted italic">Note: {r.reviewNote}</p>}
               </div>
             ))}
+          </div>
+
+          <div className="px-5 sm:px-6 pb-5 sm:pb-6">
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
           </div>
         </>
       )}

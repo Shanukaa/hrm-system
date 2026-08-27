@@ -137,17 +137,6 @@ export default function LeaveProfileEditor({ empNo, profile, onSave }) {
         </label>
 
         <label>
-          <span className="text-xs font-medium text-muted">Date of birth</span>
-          <input
-            type="date"
-            value={form.birthDate}
-            onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
-            className="mt-1 w-full text-sm border border-line rounded-xl px-3 py-2 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-          />
-          <span className="text-[11px] text-muted mt-1 block">Used for the company-wide birthday shout-out.</span>
-        </label>
-
-        <label>
           <span className="text-xs font-medium text-muted">Manager's EMP No (fallback)</span>
           <input
             type="text"

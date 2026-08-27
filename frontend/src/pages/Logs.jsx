@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
+import Pagination from "../components/Pagination.jsx";
+import { usePagination } from "../hooks/usePagination.js";
 import { getLogs } from "../api/client.js";
 
 const ACTION_LABELS = {
@@ -40,6 +42,8 @@ export default function Logs() {
     );
   }, [logs, query]);
 
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, 20);
+
   return (
     <>
       <Topbar title="Activity Log" subtitle="Audit trail of logins and changes made across the system" />
@@ -54,7 +58,10 @@ export default function Logs() {
             type="text"
             placeholder="Search by user, action, or details…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
             className="w-full max-w-md text-sm border border-line rounded-xl px-3.5 py-2.5 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
           <p className="text-xs text-muted whitespace-nowrap">
@@ -77,7 +84,7 @@ export default function Logs() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((l, i) => (
+                {pageItems.map((l, i) => (
                   <tr key={i} className="border-b border-line last:border-0 align-top">
                     <td className="px-4 py-3 text-muted text-xs whitespace-nowrap">
                       {l.timestamp ? new Date(l.timestamp).toLocaleString() : "—"}
@@ -109,6 +116,7 @@ export default function Logs() {
             </table>
           </div>
         )}
+        {!loading && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />}
       </div>
     </>
   );

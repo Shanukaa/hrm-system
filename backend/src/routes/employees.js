@@ -9,6 +9,7 @@ import {
 import { calculatePayroll } from "../services/payrollCalc.js";
 import { addLog } from "../services/logService.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
+import { getLeaveProfile, upsertLeaveProfile } from "../services/leaveService.js";
 
 const router = Router();
 
@@ -48,6 +49,21 @@ router.get("/:empNo", async (req, res, next) => {
       return res.json(filtered);
     }
     res.json(employee);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Date of birth is captured for every employee (regardless of whether their
+// leave profile has been set up) so the birthday notification covers
+// everyone. Any role that can edit employees can set it — not gated behind
+// the fuller leave-profile permission.
+router.put("/:empNo/birthdate", requirePermission("employees", "edit"), async (req, res, next) => {
+  try {
+    const employee = await getEmployeeByEmpNo(req.params.empNo);
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
+    const profile = await upsertLeaveProfile(req.params.empNo, { birthDate: req.body.birthDate || null }, req.user.email);
+    res.json({ empNo: req.params.empNo, birthDate: profile.birthDate });
   } catch (err) {
     next(err);
   }
