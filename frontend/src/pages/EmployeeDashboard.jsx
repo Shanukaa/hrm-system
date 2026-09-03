@@ -106,7 +106,7 @@ export default function EmployeeDashboard() {
         </div>
       ),
     },
-    { key: "myrequests", label: "My Leave Requests", content: <MyLeaveHistory requests={requests} /> },
+    { key: "myrequests", label: "My Leave Requests", content: <MyLeaveHistory requests={requests} onChanged={loadAll} /> },
     { key: "notifications", label: "Notifications", content: <NotificationsPanel canPostGlobal={false} canPostDepartment={false} userEmail={user.email} /> },
   ];
 

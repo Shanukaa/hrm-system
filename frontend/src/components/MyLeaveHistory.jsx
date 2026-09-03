@@ -1,15 +1,32 @@
+import { useState } from "react";
 import Pagination from "./Pagination.jsx";
 import { usePagination } from "../hooks/usePagination.js";
+import { withdrawLeaveRequest } from "../api/client.js";
 
 const STATUS_STYLES = {
   pending: "bg-accentSoft text-accent",
   approved: "bg-emerald-100 text-emerald-700",
   rejected: "bg-alertSoft text-alert",
+  cancelled: "bg-paper text-muted",
 };
 
-/** Shows the last N months (default 3) of an employee/manager's own leave requests. */
-export default function MyLeaveHistory({ requests }) {
+/** Shows the last N months (default 3) of an employee/manager's own leave requests, with a Withdraw action while still pending. */
+export default function MyLeaveHistory({ requests, onChanged }) {
   const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(requests, 8);
+  const [busyId, setBusyId] = useState(null);
+
+  async function handleWithdraw(id) {
+    if (!confirm("Withdraw this leave request?")) return;
+    setBusyId(id);
+    try {
+      await withdrawLeaveRequest(id);
+      onChanged?.();
+    } catch (err) {
+      alert(err?.response?.data?.error || "Could not withdraw this request.");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card overflow-hidden">
@@ -26,7 +43,8 @@ export default function MyLeaveHistory({ requests }) {
                 <th className="px-4 py-3 font-medium">Days</th>
                 <th className="px-4 py-3 font-medium">Reason</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-6 py-3 font-medium">Note</th>
+                <th className="px-4 py-3 font-medium">Note</th>
+                <th className="px-6 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -43,7 +61,18 @@ export default function MyLeaveHistory({ requests }) {
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-1 rounded-full capitalize ${STATUS_STYLES[r.status]}`}>{r.status}</span>
                   </td>
-                  <td className="px-6 py-3 text-muted max-w-xs">{r.reviewNote || "—"}</td>
+                  <td className="px-4 py-3 text-muted max-w-xs">{r.reviewNote || "—"}</td>
+                  <td className="px-6 py-3">
+                    {r.status === "pending" && (
+                      <button
+                        onClick={() => handleWithdraw(r.id)}
+                        disabled={busyId === r.id}
+                        className="text-xs text-muted hover:text-alert disabled:opacity-50 transition-colors"
+                      >
+                        {busyId === r.id ? "Withdrawing…" : "Withdraw"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -64,6 +93,15 @@ export default function MyLeaveHistory({ requests }) {
                 </p>
                 {r.reason && <p className="text-xs text-muted">Reason: {r.reason}</p>}
                 {r.reviewNote && <p className="text-xs text-muted italic">Note: {r.reviewNote}</p>}
+                {r.status === "pending" && (
+                  <button
+                    onClick={() => handleWithdraw(r.id)}
+                    disabled={busyId === r.id}
+                    className="text-xs text-alert disabled:opacity-50 transition-colors"
+                  >
+                    {busyId === r.id ? "Withdrawing…" : "Withdraw"}
+                  </button>
+                )}
               </div>
             ))}
           </div>

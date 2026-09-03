@@ -1,10 +1,16 @@
 import jwt from "jsonwebtoken";
 import { JWT_SECRET, can } from "../config/auth.js";
 
-/** Verifies the Bearer token and attaches { id, name, email, role } to req.user. */
+/**
+ * Verifies the session JWT and attaches { id, name, email, role } to
+ * req.user. Reads from the httpOnly `token` cookie first (what the web app
+ * uses — inaccessible to JS, so an XSS bug can't exfiltrate it) and falls
+ * back to an `Authorization: Bearer` header for API/script access.
+ */
 export function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  const headerToken = header.startsWith("Bearer ") ? header.slice(7) : null;
+  const token = req.cookies?.token || headerToken;
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   try {

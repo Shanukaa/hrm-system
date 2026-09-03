@@ -1,14 +1,38 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { getUserByEmail, toPublicUser } from "../services/userService.js";
+import rateLimit from "express-rate-limit";
+import { getUserByEmail, isLocked, recordFailedLogin, resetFailedLogins } from "../services/userService.js";
 import { addLog } from "../services/logService.js";
 import { requireAuth } from "../middleware/auth.js";
-import { JWT_SECRET, JWT_EXPIRES_IN } from "../config/auth.js";
+import { JWT_SECRET, JWT_EXPIRES_IN, parseDurationMs } from "../config/auth.js";
 
 const router = Router();
 
-router.post("/login", async (req, res, next) => {
+// Throttles login attempts by IP, independent of the per-account lockout in
+// userService — this covers the "many accounts, one attacker" case that
+// per-account lockout alone doesn't.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts from this network. Please wait a few minutes and try again." },
+});
+
+const isProduction = process.env.NODE_ENV === "production";
+
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: "lax",
+    maxAge: parseDurationMs(JWT_EXPIRES_IN),
+    path: "/",
+  };
+}
+
+router.post("/login", loginLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -16,9 +40,24 @@ router.post("/login", async (req, res, next) => {
     }
 
     const user = await getUserByEmail(email);
+
+    if (user && isLocked(user)) {
+      await addLog({
+        userEmail: email,
+        userRole: "",
+        action: "login_blocked",
+        details: "account temporarily locked after repeated failed attempts",
+        ip: req.ip,
+      });
+      return res.status(423).json({
+        error: "This account is temporarily locked after several failed attempts. Try again in a few minutes.",
+      });
+    }
+
     const valid = user && user.active && (await bcrypt.compare(password, user.passwordHash));
 
     if (!valid) {
+      if (user) await recordFailedLogin(email);
       await addLog({
         userEmail: email,
         userRole: "",
@@ -29,12 +68,17 @@ router.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    await resetFailedLogins(user.id);
+
     const payload = { id: user.id, name: user.name, email: user.email, role: user.role, empNo: user.empNo || null };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
     await addLog({ userEmail: user.email, userRole: user.role, action: "login", details: "", ip: req.ip });
 
-    res.json({ token, user: payload });
+    // The token lives only in an httpOnly cookie — never in the JSON body —
+    // so client-side JS (and therefore an XSS bug) can't read it.
+    res.cookie("token", token, cookieOptions());
+    res.json({ user: payload });
   } catch (err) {
     next(err);
   }
@@ -47,6 +91,7 @@ router.get("/me", requireAuth, (req, res) => {
 router.post("/logout", requireAuth, async (req, res, next) => {
   try {
     await addLog({ userEmail: req.user.email, userRole: req.user.role, action: "logout", details: "", ip: req.ip });
+    res.clearCookie("token", { ...cookieOptions(), maxAge: undefined });
     res.status(204).end();
   } catch (err) {
     next(err);

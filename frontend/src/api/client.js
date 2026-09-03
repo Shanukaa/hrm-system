@@ -1,23 +1,21 @@
 import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-const TOKEN_KEY = "hrm_token";
 
-const api = axios.create({ baseURL: API_BASE });
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// withCredentials so the browser sends/receives the httpOnly session cookie
+// set by the backend on login. The token itself is never touched by JS —
+// it lives only in that cookie — so an XSS bug elsewhere can't read it out
+// of localStorage the way the previous version allowed.
+const api = axios.create({ baseURL: API_BASE, withCredentials: true });
 
 // Central 401 handling: if a call ever comes back unauthenticated (expired
-// or missing token), clear the stored session and send the user to /login.
+// or missing session), clear the cached user display info and send the
+// user to /login. The actual session cookie is cleared server-side on
+// logout / left to expire naturally otherwise.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem("hrm_user");
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
@@ -86,6 +84,12 @@ export const downloadAllPayslips = async (period, empNos, format) => {
   triggerDownload(res.data, `payslips${format === "simple" ? "-simple" : ""}.zip`);
 };
 
+// Admin/HR-manager only: clears a locked payslip snapshot so the next
+// download re-locks against the employee's current data. Use this to
+// correct a payslip that was generated with wrong figures.
+export const unlockPayslip = (empNo, period) =>
+  api.delete(`/payslips/${encodeURIComponent(empNo)}/snapshot`, { params: { period } }).then((r) => r.data);
+
 function triggerDownload(blob, filename) {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -127,6 +131,9 @@ export const getLeaveNotifications = (empNo) =>
 
 export const ackLeaveRequest = (id, empNo) =>
   api.post(`/leaves/requests/${id}/ack`, {}, { params: empNo ? { empNo } : {} }).then((r) => r.data);
+
+export const withdrawLeaveRequest = (id, empNo) =>
+  api.post(`/leaves/requests/${id}/withdraw`, empNo ? { empNo } : {}).then((r) => r.data);
 
 export const getAllLeaveRequests = (status) =>
   api.get("/leaves/requests", { params: status ? { status } : {} }).then((r) => r.data);

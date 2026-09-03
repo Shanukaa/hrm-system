@@ -7,6 +7,7 @@ const STATUS_STYLES = {
   pending: "bg-accentSoft text-accent",
   approved: "bg-emerald-100 text-emerald-700",
   rejected: "bg-alertSoft text-alert",
+  cancelled: "bg-paper text-muted",
 };
 
 const TABS = [

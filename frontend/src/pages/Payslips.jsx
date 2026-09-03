@@ -3,10 +3,13 @@ import Topbar from "../components/Topbar.jsx";
 import MonthYearPicker, { MONTH_NAMES } from "../components/MonthYearPicker.jsx";
 import Pagination from "../components/Pagination.jsx";
 import { usePagination } from "../hooks/usePagination.js";
-import { getEmployees, downloadPayslip, downloadAllPayslips } from "../api/client.js";
+import { useAuth } from "../context/AuthContext.jsx";
+import { getEmployees, downloadPayslip, downloadAllPayslips, unlockPayslip } from "../api/client.js";
 import { money } from "../api/fields.js";
 
 export default function Payslips() {
+  const { user } = useAuth();
+  const canUnlock = ["admin", "hr_manager"].includes(user?.role);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -14,6 +17,7 @@ export default function Payslips() {
   const now = new Date();
   const [period, setPeriod] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [busy, setBusy] = useState(false);
+  const [unlockingEmpNo, setUnlockingEmpNo] = useState(null);
 
   useEffect(() => {
     getEmployees()
@@ -50,6 +54,18 @@ export default function Payslips() {
     }
   };
 
+  const handleUnlock = async (empNo) => {
+    if (!confirm(`Unlock ${empNo}'s ${periodLabel} payslip? The next download will re-lock against their current salary data.`)) return;
+    setUnlockingEmpNo(empNo);
+    try {
+      await unlockPayslip(empNo, periodLabel);
+    } catch (err) {
+      alert(err?.response?.data?.error || "Could not unlock this payslip.");
+    } finally {
+      setUnlockingEmpNo(null);
+    }
+  };
+
   return (
     <>
       <Topbar
@@ -81,6 +97,12 @@ export default function Payslips() {
           </label>
         </div>
 
+        <p className="text-xs text-muted -mt-2">
+          The first time a payslip is generated for a given employee and month, its figures are locked permanently
+          to that period — later salary changes won't alter it.
+          {canUnlock && " Use \u201cUnlock\u201d to clear a mistake and let the next download re-lock against current data."}
+        </p>
+
         {loading ? (
           <div className="py-16 text-center text-muted text-sm">Loading employees…</div>
         ) : (
@@ -102,12 +124,23 @@ export default function Payslips() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => downloadPayslip(e.empNo, periodLabel, "simple")}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-line hover:border-accent hover:text-accent transition-all duration-200"
-                  >
-                    Download PDF
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => downloadPayslip(e.empNo, periodLabel, "simple")}
+                      className="text-xs px-3 py-1.5 rounded-lg border border-line hover:border-accent hover:text-accent transition-all duration-200"
+                    >
+                      Download PDF
+                    </button>
+                    {canUnlock && (
+                      <button
+                        onClick={() => handleUnlock(e.empNo)}
+                        disabled={unlockingEmpNo === e.empNo}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-line text-muted hover:border-alert hover:text-alert disabled:opacity-60 transition-all duration-200"
+                      >
+                        {unlockingEmpNo === e.empNo ? "Unlocking…" : "Unlock"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
               {filtered.length === 0 && <p className="px-5 py-10 text-center text-sm text-muted">No employees match your search.</p>}

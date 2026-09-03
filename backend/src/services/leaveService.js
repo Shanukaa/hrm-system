@@ -322,12 +322,68 @@ export async function createLeaveRequest({ empNo, employeeName, startDate, endDa
     err.status = 400;
     throw err;
   }
+
+  // Prevent an employee from double-booking themselves — a new request
+  // can't overlap any of their own requests that are still pending or
+  // already approved (a rejected/cancelled one doesn't block anything).
+  const [overlapping] = await pool.query(
+    `SELECT id, startDate, endDate, status FROM ${REQUEST_TABLE}
+     WHERE empNo = ? AND status IN ('pending','approved') AND startDate <= ? AND endDate >= ?`,
+    [empNo, endDate, startDate]
+  );
+  if (overlapping.length > 0) {
+    const clash = overlapping[0];
+    const err = new Error(
+      `This overlaps a request you already have (${clash.status}) for ${new Date(clash.startDate)
+        .toISOString()
+        .slice(0, 10)} to ${new Date(clash.endDate).toISOString().slice(0, 10)}.`
+    );
+    err.status = 409;
+    throw err;
+  }
+
   const [result] = await pool.query(
     `INSERT INTO ${REQUEST_TABLE} (empNo, employeeName, startDate, endDate, days, reason, status, employeeSeen)
      VALUES (?, ?, ?, ?, ?, ?, 'pending', TRUE)`,
     [empNo, employeeName, startDate, endDate, days, reason || ""]
   );
   return getLeaveRequestById(result.insertId);
+}
+
+/**
+ * Lets an employee withdraw their own request while it's still pending —
+ * once a manager/HR has made a decision, it's part of the record and can
+ * no longer be pulled back (they'd need to ask the reviewer to reject it,
+ * or HR/admin can use adminCancelRequest below).
+ */
+export async function withdrawLeaveRequest(id, empNo) {
+  const request = await getLeaveRequestById(id);
+  if (!request || request.empNo !== empNo) {
+    const err = new Error("Leave request not found");
+    err.status = 404;
+    throw err;
+  }
+  if (request.status !== "pending") {
+    const err = new Error("Only a pending request can be withdrawn — this one has already been reviewed.");
+    err.status = 409;
+    throw err;
+  }
+  await pool.query(`UPDATE ${REQUEST_TABLE} SET status = 'cancelled' WHERE id = ?`, [id]);
+  return getLeaveRequestById(id);
+}
+
+/** Admin/HR override: cancels any pending request for an employee — used e.g. when off-boarding them. */
+export async function cancelAllPendingForEmployee(empNo, note) {
+  await pool.query(
+    `UPDATE ${REQUEST_TABLE} SET status = 'cancelled', reviewNote = ?, employeeSeen = FALSE, reviewedAt = CURRENT_TIMESTAMP
+     WHERE empNo = ? AND status = 'pending'`,
+    [note || "Cancelled automatically", empNo]
+  );
+}
+
+/** Removes an employee's leave profile — used when the employee record itself is deleted. */
+export async function deleteLeaveProfile(empNo) {
+  await pool.query(`DELETE FROM ${PROFILE_TABLE} WHERE empNo = ?`, [empNo]);
 }
 
 function normalizeRequestRow(row) {

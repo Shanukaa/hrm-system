@@ -59,7 +59,10 @@ export default function MyPayslips({ empNo }) {
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
           <h3 className="font-display text-base text-ink">My Payslips</h3>
-          <p className="text-xs text-muted mt-0.5">Available up to the current month — search by month or year.</p>
+          <p className="text-xs text-muted mt-0.5">
+            Available up to the current month — search by month or year. Once generated, a payslip's figures are
+            locked to that month permanently.
+          </p>
         </div>
         <input
           type="text"

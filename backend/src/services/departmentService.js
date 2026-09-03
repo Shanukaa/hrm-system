@@ -88,6 +88,11 @@ export async function getDepartmentManagedBy(managerEmpNo) {
   return normalize(rows[0]);
 }
 
+/** Clears managerEmpNo on any department that pointed at this employee — used when the employee record is deleted. */
+export async function unassignManagerEverywhere(empNo) {
+  await pool.query(`UPDATE ${TABLE} SET managerEmpNo = NULL WHERE managerEmpNo = ?`, [empNo]);
+}
+
 /** All employees (name + empNo) currently assigned to a department. */
 export async function getEmployeesInDepartment(departmentId) {
   const [rows] = await pool.query(

@@ -7,8 +7,17 @@ import {
   BOOTSTRAP_ADMIN_EMAIL,
   BOOTSTRAP_ADMIN_PASSWORD,
 } from "../config/auth.js";
+import { validatePasswordStrength } from "./passwordPolicy.js";
 
 const TABLE = "users";
+
+// Failed-login lockout: after this many consecutive failures, the account
+// is locked for LOCKOUT_MINUTES. Combined with the rate limiter on the
+// login route itself (which throttles by IP), this makes both distributed
+// and targeted brute-forcing meaningfully slower without permanently
+// locking anyone out — it always clears automatically after the window.
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
 
 /** Creates the users table if it doesn't exist yet. Safe to call on every startup. */
 export async function ensureUsersTable() {
@@ -25,13 +34,18 @@ export async function ensureUsersTable() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
-  // Migration: link a login account to a payroll employee row (empNo), used
-  // by the "employee" and "manager" roles for the self-service leave portal.
-  // Wrapped in try/catch so it's a no-op once the column already exists.
-  try {
-    await pool.query(`ALTER TABLE ${TABLE} ADD COLUMN empNo VARCHAR(64) NULL AFTER role`);
-  } catch (err) {
-    if (err.code !== "ER_DUP_FIELDNAME") throw err;
+  // Migrations, each safe to re-run — a no-op once the column already exists.
+  const migrations = [
+    `ALTER TABLE ${TABLE} ADD COLUMN empNo VARCHAR(64) NULL AFTER role`,
+    `ALTER TABLE ${TABLE} ADD COLUMN failedLoginAttempts INT NOT NULL DEFAULT 0`,
+    `ALTER TABLE ${TABLE} ADD COLUMN lockedUntil TIMESTAMP NULL`,
+  ];
+  for (const stmt of migrations) {
+    try {
+      await pool.query(stmt);
+    } catch (err) {
+      if (err.code !== "ER_DUP_FIELDNAME") throw err;
+    }
   }
 }
 
@@ -72,6 +86,12 @@ export async function getUserByEmpNo(empNo) {
 export async function createUser({ name, email, password, role, empNo, createdBy }) {
   if (!name || !email || !password || !role) {
     const err = new Error("name, email, password and role are all required");
+    err.status = 400;
+    throw err;
+  }
+  const passwordError = validatePasswordStrength(password);
+  if (passwordError) {
+    const err = new Error(passwordError);
     err.status = 400;
     throw err;
   }
@@ -135,7 +155,15 @@ export async function updateUser(id, data) {
   if (data.role !== undefined) updated.role = data.role;
   if (data.empNo !== undefined) updated.empNo = data.empNo || null;
   if (data.active !== undefined) updated.active = !!data.active;
-  if (data.password) updated.passwordHash = await bcrypt.hash(data.password, 10);
+  if (data.password) {
+    const passwordError = validatePasswordStrength(data.password);
+    if (passwordError) {
+      const err = new Error(passwordError);
+      err.status = 400;
+      throw err;
+    }
+    updated.passwordHash = await bcrypt.hash(data.password, 10);
+  }
 
   if (EMP_LINKED_ROLES.includes(updated.role) && !updated.empNo) {
     const err = new Error(`${updated.role} accounts must be linked to an EMP NO`);
@@ -172,6 +200,41 @@ export async function deleteUser(id) {
 }
 
 /**
+ * Deactivates (does not delete) any login account linked to this empNo, and
+ * clears the link — used when the employee record itself is deleted. We
+ * deactivate rather than delete the account so the activity log (which
+ * references it by email) still resolves to a real, if now-inactive, user.
+ */
+export async function deactivateByEmpNo(empNo) {
+  await pool.query(`UPDATE ${TABLE} SET active = FALSE, empNo = NULL WHERE empNo = ?`, [empNo]);
+}
+
+/**
+ * Account lockout after repeated failed logins. Called from the login
+ * route so the lockout state lives alongside the rest of the user record.
+ */
+export function isLocked(user) {
+  return !!(user.lockedUntil && new Date(user.lockedUntil) > new Date());
+}
+
+export async function recordFailedLogin(email) {
+  const user = await getUserByEmail(email);
+  if (!user) return; // Don't reveal whether the email exists via lockout timing.
+  const attempts = (user.failedLoginAttempts || 0) + 1;
+  const lockedUntil =
+    attempts >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000) : user.lockedUntil;
+  await pool.query(`UPDATE ${TABLE} SET failedLoginAttempts = ?, lockedUntil = ? WHERE id = ?`, [
+    attempts,
+    lockedUntil,
+    user.id,
+  ]);
+}
+
+export async function resetFailedLogins(id) {
+  await pool.query(`UPDATE ${TABLE} SET failedLoginAttempts = 0, lockedUntil = NULL WHERE id = ?`, [id]);
+}
+
+/**
  * If no users exist yet, creates one admin account from the
  * BOOTSTRAP_ADMIN_* env vars so there's a way to log in for the first time.
  * Safe to call on every startup — it's a no-op once any user exists.
@@ -184,6 +247,15 @@ export async function bootstrapAdminIfNeeded() {
     console.warn(
       "No users exist yet and BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD are not set — " +
         "set them in your environment and restart to create the first admin account."
+    );
+    return;
+  }
+
+  const passwordError = validatePasswordStrength(BOOTSTRAP_ADMIN_PASSWORD);
+  if (passwordError) {
+    console.warn(
+      `BOOTSTRAP_ADMIN_PASSWORD does not meet the password policy (${passwordError}) — ` +
+        "fix it in your environment and restart to create the first admin account."
     );
     return;
   }

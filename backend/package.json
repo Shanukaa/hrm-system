@@ -10,17 +10,19 @@
     "migrate-from-sheets": "node scripts/migrate-from-sheets.mjs"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.6.2",
     "googleapis": "^140.0.1",
-    "multer": "^1.4.5-lts.1",
-    "pdfkit": "^0.15.0",
-    "xlsx": "^0.18.5",
-    "archiver": "^7.0.1",
-    "morgan": "^1.10.0",
-    "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.11.3"
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.11.3",
+    "pdfkit": "^0.15.0",
+    "xlsx": "^0.18.5"
   }
 }

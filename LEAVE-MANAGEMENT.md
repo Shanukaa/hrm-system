@@ -269,3 +269,179 @@ up. A new lightweight `PUT /api/employees/:empNo/birthdate` endpoint backs
 this — it doesn't require the fuller leave-profile permission, so HR
 executives (who can't touch leave policy) can still record birthdays.
 
+---
+
+# Round 4 — Security hardening
+
+## Session tokens moved out of localStorage
+
+Login no longer returns the JWT in the response body. Instead, the backend
+sets it as an **httpOnly cookie** (`Set-Cookie: token=...; HttpOnly;
+SameSite=Lax; Secure` in production). Client-side JavaScript — including any
+XSS payload that might slip in from a dependency or a bug — can no longer
+read the session token out of `localStorage`, because it's never stored
+there anymore. The frontend now sends `withCredentials: true` on every
+request instead of manually attaching an `Authorization` header.
+
+For scripts, curl, or any non-browser API access, the old `Authorization:
+Bearer <token>` header still works as a fallback — `requireAuth` checks the
+cookie first, then falls back to the header. Nothing existing breaks.
+
+## Login is rate-limited and accounts can lock
+
+- **Per-IP rate limit** on `POST /api/auth/login`: 20 attempts per 15
+  minutes, regardless of which account is being tried. This is on top of,
+  not instead of, the account-level lockout below — it covers the case of
+  someone spraying many different email addresses from one source.
+- **Per-account lockout**: after 5 consecutive failed logins, that specific
+  account is locked for 15 minutes — even a subsequently-correct password
+  is rejected until the lockout clears. This resets automatically; there's
+  no manual "unlock" step needed, and no account can be locked out
+  permanently by an attacker.
+
+## Password policy
+
+Any password set anywhere in the app (new user, password change, and the
+`BOOTSTRAP_ADMIN_PASSWORD` env var used to create the very first admin
+account) must be at least 8 characters and include at least one letter and
+one number. If `BOOTSTRAP_ADMIN_PASSWORD` doesn't meet this, the server logs
+a clear warning telling you to fix the env var and skips creating that
+account, rather than creating a weak one silently.
+
+## The server no longer starts in a broken state
+
+Previously, if the database was unreachable at startup (wrong credentials,
+DB not up yet, etc.), the server logged a warning and **kept running
+anyway** — meaning it would accept connections and 500 on every request
+while looking "up" to any uptime check. It now fails fast: on a database
+setup failure, it logs a clear fatal error and exits with a non-zero code,
+so your process manager or container platform (Docker, Railway, PM2, etc.)
+sees the failure and can restart or alert on it instead of silently serving
+a broken app.
+
+## What's next, and what needs a decision from you first
+
+The remaining items from the drawbacks list — the payslip
+historical-snapshot problem, leave request overlap/cancellation, employee
+delete cascading, configurable leave policy, a public holiday calendar,
+server-side pagination, PII encryption at rest, and automated tests — are
+still open. A few other items on that list need something from your side
+before they can be built rather than just more engineering time:
+
+- **Self-service "forgot password"** needs an SMTP provider (or a
+  transactional email service like SES/Postmark) to actually deliver a
+  reset link — there's currently no email sending capability in this app at
+  all. Tell me what you have access to and I'll wire it in.
+- **Error monitoring** (Sentry or similar) needs an account/DSN from you.
+- **Encryption-at-rest for PII** (NIC, bank account numbers) needs a
+  decision on where the encryption key lives in production — an env var is
+  fine for now but isn't a long-term key management story.
+
+Let me know which of the remaining items to tackle next.
+
+---
+
+# Round 5 — Payroll correctness: locked payslip snapshots
+
+## The bug
+
+Payslips were generated from the employee's *current* salary record every
+time — there was no historical record of what a payslip actually showed
+when it was issued. If someone got a raise today, downloading their payslip
+for three months ago would silently show today's (wrong) salary for that
+past period. This is the kind of bug that looks fine in every manual test
+(you always test with today's data) and only surfaces once someone
+compares a printed payslip against what the system now shows for the same
+month.
+
+## The fix: snapshot-on-first-generate
+
+There's a new `payroll_snapshots` table. The first time anyone downloads a
+payslip for a given employee and pay period (either from the self-service
+"My Payslips" list or the admin "Generate PDF" page), the system takes a
+full snapshot of that employee's record at that exact moment and stores it,
+keyed by employee + year + month. Every subsequent download for that same
+period — no matter what happens to the employee's salary, allowances, or
+bank details afterward — returns exactly what was captured in that
+snapshot. Bulk zip downloads go through the identical snapshot logic per
+employee.
+
+Verified end-to-end: created an employee at Rs. 50,000 basic salary,
+generated their August payslip, gave them a raise to Rs. 80,000, and
+re-downloaded the August payslip — it still correctly showed Rs. 50,000.
+Generating September (a period never touched before the raise) correctly
+showed Rs. 80,000.
+
+## Correcting a mistake
+
+Sometimes the first-ever generation genuinely was wrong (a data entry
+error caught after the fact). Admin and HR Manager — not HR Executive, this
+is intentionally more restricted than ordinary payslip access — can
+**Unlock** a specific employee's payslip for a specific period from the
+Payslips page. The next download for that period re-locks against whatever
+the employee's data looks like at that point. Verified this is correctly
+blocked for `hr_executive` (403) and correctly works for `admin`.
+
+## What this doesn't cover
+
+This locks the *figures* (salary, allowances, deductions, EPF/ETF, bank
+details — everything on the employee record) at generation time. It does
+not give you a browsable payroll history UI (e.g. "show me every payslip
+ever generated across the company") — that would be a reasonable next step
+if you want it, built on top of the same `payroll_snapshots` table this
+round added.
+
+
+
+
+---
+
+# Round 6 — Data integrity
+
+## Leave requests can no longer overlap themselves
+
+An employee could previously submit multiple requests covering the same
+dates — nothing stopped it. Submitting a new request now checks it against
+that employee's own pending and approved requests; an overlap is rejected
+(409) with a clear message naming the clashing dates and its status. A
+rejected or withdrawn request doesn't block anything, only pending/approved
+ones do.
+
+## Employees can withdraw a pending request
+
+New "Withdraw" action on **My Leave Requests** (self-service dashboards),
+available only while a request is still `pending`. Once a manager/HR has
+made a decision, it's part of the record — it can no longer be pulled back
+by the employee. Withdrawing sets its status to `cancelled` (a new status
+alongside pending/approved/rejected, styled consistently everywhere a
+status badge shows up) and immediately frees up those dates for a new
+request. Verified: trying to withdraw an already-approved request correctly
+returns 409 with a clear explanation.
+
+## Deleting an employee no longer leaves orphaned data behind
+
+Previously a hard `DELETE` on the employee record left a trail behind it:
+their leave profile pointing at nothing, a department still listing them as
+manager, and — since self-service logins now exist — a login account tied
+to a record that no longer existed. Deleting an employee now, in order:
+
+1. **Cancels any of their still-pending leave requests**, with a note
+   explaining why, so nothing sits invisibly in a queue forever.
+2. **Unassigns them as manager** from any department that pointed at them.
+3. **Deactivates and unlinks any login account** tied to their EMP No —
+   deactivated rather than deleted, so the activity log (which references
+   accounts by email) still resolves correctly. A deactivated account can
+   no longer log in.
+4. **Removes their leave profile.**
+5. Only then deletes the employee record itself.
+
+Historical records — past leave request history, and any locked payroll
+snapshots from Round 5 — are deliberately left alone. Deleting someone
+shouldn't erase what actually happened while they were employed.
+
+Verified end-to-end: deleted an employee who was both a department's
+manager and had a `manager`-role login and a pending leave request — after
+deletion, the department's manager field was cleared, the login account was
+confirmed deactivated (and a login attempt with its password afterward
+correctly failed), and the pending request was confirmed cancelled with an
+explanatory note rather than left stranded in the approval queue.

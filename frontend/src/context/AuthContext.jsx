@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { login as loginRequest, logoutRequest, getMe } from "../api/client.js";
 
-const TOKEN_KEY = "hrm_token";
+// Only a display cache of non-sensitive user info (name/role/etc.) for a
+// fast first paint — never the session token itself, which lives solely in
+// an httpOnly cookie the backend sets and this code never touches.
 const USER_KEY = "hrm_user";
 
 const AuthContext = createContext(null);
@@ -14,16 +16,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    // Confirm the stored token is still valid on load (e.g. it may have expired).
+    // Always confirm against the server: the httpOnly cookie is the real
+    // source of truth, and it may have expired or been cleared since the
+    // cached display info was last written.
     getMe()
-      .then(({ user }) => setUser(user))
+      .then(({ user }) => {
+        setUser(user);
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+      })
       .catch(() => {
-        localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         setUser(null);
       })
@@ -31,8 +32,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    const { token, user } = await loginRequest(email, password);
-    localStorage.setItem(TOKEN_KEY, token);
+    const { user } = await loginRequest(email, password);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     setUser(user);
     return user;
@@ -40,7 +40,6 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     await logoutRequest();
-    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);
   }, []);

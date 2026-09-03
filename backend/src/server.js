@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 
 import authRouter from "./routes/auth.js";
 import usersRouter from "./routes/users.js";
@@ -19,6 +20,7 @@ import { ensureLogsTable } from "./services/logService.js";
 import { ensureLeaveTables } from "./services/leaveService.js";
 import { ensureDepartmentsTable } from "./services/departmentService.js";
 import { ensureAnnouncementsTable } from "./services/announcementService.js";
+import { ensurePayrollSnapshotsTable } from "./services/payrollSnapshotService.js";
 
 dotenv.config();
 
@@ -26,7 +28,8 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173").split(",");
 
-app.use(cors({ origin: corsOrigins }));
+app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -57,13 +60,21 @@ async function start() {
     await ensureDepartmentsTable();
     await ensureLeaveTables();
     await ensureAnnouncementsTable();
+    await ensurePayrollSnapshotsTable();
     await bootstrapAdminIfNeeded();
   } catch (err) {
-    console.warn(
-      "Warning: could not set up the database automatically. " +
-        "Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME and that the database is reachable. " +
+    // Fail fast rather than silently serving a broken app: if the database
+    // isn't reachable or the schema can't be set up, there's nothing this
+    // process can usefully do. Exiting with a non-zero code lets your
+    // process manager / container orchestrator (Docker, Railway, PM2, etc.)
+    // see the failure and restart or alert on it, instead of the app
+    // looking "up" while every request actually 500s.
+    console.error(
+      "FATAL: could not set up the database on startup. " +
+        "Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME and that the database is reachable.\n" +
         err.message
     );
+    process.exit(1);
   }
 
   app.listen(PORT, () => {

@@ -13,6 +13,7 @@ import {
   decideLeaveRequest,
   checkDepartmentCapacity,
   getAvailabilityCalendar,
+  withdrawLeaveRequest,
 } from "../services/leaveService.js";
 import { getEmployeeByEmpNo } from "../services/employeeService.js";
 import { addLog } from "../services/logService.js";
@@ -143,6 +144,24 @@ router.get("/requests/mine", requirePermission("leaves", "request"), async (req,
     const empNo = resolveEmpNo(req, req.query);
     const requests = await getLeaveRequestsForEmployee(empNo, { months: req.query.months ? Number(req.query.months) : undefined });
     res.json(requests);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// An employee/manager withdrawing their own still-pending request.
+router.post("/requests/:id/withdraw", requirePermission("leaves", "request"), async (req, res, next) => {
+  try {
+    const empNo = resolveEmpNo(req, req.body);
+    const updated = await withdrawLeaveRequest(req.params.id, empNo);
+    await addLog({
+      userEmail: req.user.email,
+      userRole: req.user.role,
+      action: "leave_withdrawn",
+      details: `${empNo} withdrew leave request #${updated.id}`,
+      ip: req.ip,
+    });
+    res.json(updated);
   } catch (err) {
     next(err);
   }

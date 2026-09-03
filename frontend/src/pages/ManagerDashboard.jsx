@@ -157,7 +157,7 @@ export default function ManagerDashboard() {
         </div>
       ),
     },
-    { key: "myrequests", label: "My Leave Requests", content: <MyLeaveHistory requests={requests} /> },
+    { key: "myrequests", label: "My Leave Requests", content: <MyLeaveHistory requests={requests} onChanged={loadAll} /> },
     {
       key: "notifications",
       label: "Notifications",

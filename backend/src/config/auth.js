@@ -4,6 +4,23 @@ dotenv.config();
 export const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
 
+/**
+ * Converts a jsonwebtoken-style duration string ("8h", "7d", "45m", "3600s",
+ * or a bare number of seconds) to milliseconds, for the session cookie's
+ * maxAge. Falls back to 8 hours if the format isn't recognized.
+ */
+export function parseDurationMs(input) {
+  const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+  if (!input) return EIGHT_HOURS_MS;
+  if (/^\d+$/.test(input)) return Number(input) * 1000;
+  const match = /^(\d+)\s*(ms|s|m|h|d)$/.exec(String(input).trim());
+  if (!match) return EIGHT_HOURS_MS;
+  const value = Number(match[1]);
+  const unit = match[2];
+  const multipliers = { ms: 1, s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+  return value * multipliers[unit];
+}
+
 export const USERS_SHEET_NAME = process.env.USERS_SHEET_NAME || "Users";
 export const LOGS_SHEET_NAME = process.env.LOGS_SHEET_NAME || "Logs";
 

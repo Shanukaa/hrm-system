@@ -9,7 +9,9 @@ import {
 import { calculatePayroll } from "../services/payrollCalc.js";
 import { addLog } from "../services/logService.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
-import { getLeaveProfile, upsertLeaveProfile } from "../services/leaveService.js";
+import { getLeaveProfile, upsertLeaveProfile, deleteLeaveProfile, cancelAllPendingForEmployee } from "../services/leaveService.js";
+import { unassignManagerEverywhere } from "../services/departmentService.js";
+import { deactivateByEmpNo } from "../services/userService.js";
 
 const router = Router();
 
@@ -108,12 +110,25 @@ router.put("/:empNo", requirePermission("employees", "edit"), async (req, res, n
 
 router.delete("/:empNo", requirePermission("employees", "delete"), async (req, res, next) => {
   try {
-    await deleteEmployee(req.params.empNo);
+    const empNo = req.params.empNo;
+    // Deleting an employee record used to leave a trail of orphaned data —
+    // a leave profile pointing nowhere, a department still listing them as
+    // manager, and (once self-service logins existed) a user account tied
+    // to a record that no longer exists. Clean all of that up as part of
+    // the same operation, in an order that can't leave things half-done:
+    // cancel anything still pending first (so nobody's request silently
+    // vanishes), then unlink everything else, then delete the record itself.
+    await cancelAllPendingForEmployee(empNo, "Cancelled automatically — the employee record was deleted.");
+    await unassignManagerEverywhere(empNo);
+    await deactivateByEmpNo(empNo);
+    await deleteLeaveProfile(empNo);
+    await deleteEmployee(empNo);
+
     await addLog({
       userEmail: req.user.email,
       userRole: req.user.role,
       action: "employee_deleted",
-      details: `Deleted employee ${req.params.empNo}`,
+      details: `Deleted employee ${empNo} (cascaded: leave profile removed, pending leave cancelled, department manager unassigned if applicable, linked login deactivated)`,
       ip: req.ip,
     });
     res.status(204).end();

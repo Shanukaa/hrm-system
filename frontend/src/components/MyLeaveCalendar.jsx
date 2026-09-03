@@ -5,6 +5,7 @@ const STATUS_META = {
   approved: { dot: "bg-emerald-500", chip: "bg-emerald-100 text-emerald-700", label: "Approved" },
   pending: { dot: "bg-accent", chip: "bg-accentSoft text-accent", label: "Pending" },
   rejected: { dot: "bg-alert", chip: "bg-alertSoft text-alert", label: "Rejected" },
+  cancelled: { dot: "bg-muted", chip: "bg-paper text-muted", label: "Cancelled" },
 };
 
 /** Own-leave calendar: shows already-taken, upcoming, and rejected leave days for the signed-in employee/manager. */
