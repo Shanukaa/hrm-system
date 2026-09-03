@@ -22,11 +22,20 @@ const loginLimiter = rateLimit({
 
 const isProduction = process.env.NODE_ENV === "production";
 
+// When the frontend and backend are on different domains (e.g. Netlify +
+// Render), the browser treats every XHR/fetch as cross-site and silently
+// drops SameSite=Lax cookies. SameSite=None + Secure is the correct fix;
+// Secure is enforced by the browser for None anyway, and both Netlify and
+// Render serve over HTTPS, so this is safe in production.
+// In local dev (same-origin localhost) we keep Lax so you don't need HTTPS.
+const isCrossOrigin = isProduction && !!process.env.CORS_ORIGIN &&
+  !process.env.CORS_ORIGIN.includes("localhost");
+
 function cookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: "lax",
+    sameSite: isCrossOrigin ? "none" : "lax",
     maxAge: parseDurationMs(JWT_EXPIRES_IN),
     path: "/",
   };
