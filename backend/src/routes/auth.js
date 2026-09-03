@@ -84,10 +84,12 @@ router.post("/login", loginLimiter, async (req, res, next) => {
 
     await addLog({ userEmail: user.email, userRole: user.role, action: "login", details: "", ip: req.ip });
 
-    // The token lives only in an httpOnly cookie — never in the JSON body —
-    // so client-side JS (and therefore an XSS bug) can't read it.
+    // Set the httpOnly cookie for browsers that support cross-site cookies
+    // (Chrome/Firefox with SameSite=None). Also include the token in the
+    // response body so Safari/iOS — which blocks third-party cookies via ITP
+    // — can store it and send it as an Authorization header instead.
     res.cookie("token", token, cookieOptions());
-    res.json({ user: payload });
+    res.json({ user: payload, token });
   } catch (err) {
     next(err);
   }

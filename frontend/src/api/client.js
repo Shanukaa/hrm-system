@@ -2,21 +2,37 @@ import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 
-// withCredentials so the browser sends/receives the httpOnly session cookie
-// set by the backend on login. The token itself is never touched by JS —
-// it lives only in that cookie — so an XSS bug elsewhere can't read it out
-// of localStorage the way the previous version allowed.
+const TOKEN_KEY = "hrm_token";
+
+// Safari/iOS (ITP) blocks third-party cookies entirely, so we can't rely on
+// the httpOnly cookie across different domains (Netlify → Render). Instead we
+// store the JWT in localStorage and send it as an Authorization header.
+// The backend accepts both the cookie and the header, so Chrome/Firefox users
+// are unaffected — their cookie still works as a silent fallback.
+export function getStoredToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+export function setStoredToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
 const api = axios.create({ baseURL: API_BASE, withCredentials: true });
 
-// Central 401 handling: if a call ever comes back unauthenticated (expired
-// or missing session), clear the cached user display info and send the
-// user to /login. The actual session cookie is cleared server-side on
-// logout / left to expire naturally otherwise.
+// Attach the token as a Bearer header on every request if we have one stored.
+api.interceptors.request.use((config) => {
+  const token = getStoredToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Central 401 handling: clear session and redirect to login.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem("hrm_user");
+      setStoredToken(null);
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }
@@ -26,8 +42,14 @@ api.interceptors.response.use(
 );
 
 // --- Auth ---
-export const login = (email, password) => api.post("/auth/login", { email, password }).then((r) => r.data);
-export const logoutRequest = () => api.post("/auth/logout").catch(() => {});
+export const login = (email, password) =>
+  api.post("/auth/login", { email, password }).then((r) => {
+    // Store token for header-based auth (needed on Safari/iOS).
+    if (r.data.token) setStoredToken(r.data.token);
+    return r.data;
+  });
+export const logoutRequest = () =>
+  api.post("/auth/logout").catch(() => {}).finally(() => setStoredToken(null));
 export const getMe = () => api.get("/auth/me").then((r) => r.data);
 
 // --- Users (admin only) ---
