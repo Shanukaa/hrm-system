@@ -20,13 +20,20 @@ const loginLimiter = rateLimit({
   message: { error: "Too many login attempts from this network. Please wait a few minutes and try again." },
 });
 
-const isProduction = process.env.NODE_ENV === "production";
-
 function cookieOptions() {
   return {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: "lax",
+    // Frontend and backend are deployed as separate services on different
+    // origins, so this cookie has to survive a cross-site fetch/XHR request
+    // on every API call — not just a top-level page navigation. SameSite=Lax
+    // (the previous setting) does NOT get sent on those cross-origin
+    // fetch/XHR requests by real browsers (curl doesn't enforce this, which
+    // is how this slipped through testing) — only SameSite=None does, and
+    // that requires Secure. Secure cookies work over plain http://localhost
+    // too (browsers special-case localhost as a secure context), so this
+    // doesn't break local dev.
+    secure: true,
+    sameSite: "none",
     maxAge: parseDurationMs(JWT_EXPIRES_IN),
     path: "/",
   };
