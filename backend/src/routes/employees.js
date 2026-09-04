@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getAllEmployees,
+  getEmployeesPaged,
   getEmployeeByEmpNo,
   createEmployee,
   updateEmployee,
@@ -19,6 +20,18 @@ router.use(requireAuth);
 
 router.get("/", requirePermission("employees", "view"), async (req, res, next) => {
   try {
+    // Opt-in pagination: pass ?page= to get { items, total, page, pageSize }.
+    // With no ?page, this stays the full array — every dropdown/picker in
+    // the app that needs "every employee" (Users, Departments, Payslips
+    // selection, etc.) relies on that and is untouched by this change.
+    if (req.query.page) {
+      const result = await getEmployeesPaged({
+        page: parseInt(req.query.page, 10) || 1,
+        pageSize: parseInt(req.query.pageSize, 10) || 20,
+        search: req.query.search || "",
+      });
+      return res.json(result);
+    }
     const employees = await getAllEmployees();
     res.json(employees);
   } catch (err) {

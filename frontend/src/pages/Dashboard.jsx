@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Topbar from "../components/Topbar.jsx";
 import StatCard from "../components/StatCard.jsx";
 import EmployeeTable from "../components/EmployeeTable.jsx";
 import Pagination from "../components/Pagination.jsx";
-import { usePagination } from "../hooks/usePagination.js";
+import { useServerPagination } from "../hooks/useServerPagination.js";
 import {
-  getEmployees,
+  getEmployeesPaged,
   getDashboardSummary,
   deleteEmployee,
   downloadPayslip,
@@ -18,46 +18,22 @@ import { useAuth } from "../context/AuthContext.jsx";
 export default function Dashboard() {
   const { user } = useAuth();
   const canSeeLeaves = ["admin", "hr_manager"].includes(user?.role);
-  const [employees, setEmployees] = useState([]);
   const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
+  const [summaryError, setSummaryError] = useState("");
   const [selected, setSelected] = useState(new Set());
 
-  async function load() {
-    setLoading(true);
-    setError("");
-    try {
-      const [emp, sum] = await Promise.all([getEmployees(), getDashboardSummary()]);
-      setEmployees(emp);
-      setSummary(sum);
-    } catch (err) {
-      setError(
-        "Could not reach the backend API. Make sure the server is running and the Google Sheet is shared with the service account."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { items: employees, total, page, setPage, totalPages, pageSize, search, setSearch, loading, error } =
+    useServerPagination(getEmployeesPaged, { pageSize: 12 });
 
   useEffect(() => {
-    load();
+    getDashboardSummary()
+      .then(setSummary)
+      .catch(() =>
+        setSummaryError(
+          "Could not reach the backend API. Make sure the server is running and the database is reachable."
+        )
+      );
   }, []);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return employees;
-    const q = query.toLowerCase();
-    return employees.filter(
-      (e) =>
-        e.employeeName?.toLowerCase().includes(q) ||
-        e.empNo?.toLowerCase().includes(q) ||
-        e.designation?.toLowerCase().includes(q) ||
-        e.costCentre?.toLowerCase().includes(q)
-    );
-  }, [employees, query]);
-
-  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(filtered, 12);
 
   const toggleSelect = (empNo) => {
     setSelected((prev) => {
@@ -69,27 +45,28 @@ export default function Dashboard() {
 
   const toggleSelectAll = () => {
     setSelected((prev) => {
-      if (pageItems.every((e) => prev.has(e.empNo))) return new Set();
-      return new Set([...prev, ...pageItems.map((e) => e.empNo)]);
+      if (employees.every((e) => prev.has(e.empNo))) return new Set();
+      return new Set([...prev, ...employees.map((e) => e.empNo)]);
     });
   };
 
   const handleDelete = async (empNo) => {
-    if (!confirm(`Delete employee ${empNo}? This removes the row from the Google Sheet.`)) return;
+    if (!confirm(`Delete employee ${empNo}? This also cancels their pending leave, unassigns them as a department manager if applicable, and deactivates any linked login.`))
+      return;
     await deleteEmployee(empNo);
-    load();
+    setPage(1);
   };
 
   const handleBulkPayslips = async () => {
     const empNos = selected.size > 0 ? [...selected] : undefined;
-    await downloadAllPayslips(undefined, empNos);
+    await downloadAllPayslips(undefined, empNos, "simple");
   };
 
   return (
     <>
       <Topbar
         title="Payroll Dashboard"
-        subtitle="Live view of your Google Sheet, ready for review and payslip generation"
+        subtitle="Live view of your employee records, ready for review and payslip generation"
         actions={
           <>
             <button
@@ -109,9 +86,9 @@ export default function Dashboard() {
       />
 
       <div className="p-8 space-y-6">
-        {error && (
+        {(error || summaryError) && (
           <div className="border border-alert/40 bg-alertSoft text-alert text-sm rounded-md px-4 py-3">
-            {error}
+            {error || summaryError}
           </div>
         )}
 
@@ -133,16 +110,11 @@ export default function Dashboard() {
           <input
             type="text"
             placeholder="Search by name, EMP no, designation, cost centre…"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(1);
-            }}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full max-w-md text-sm border border-line rounded-xl px-3.5 py-2.5 bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
           />
-          <p className="text-xs text-muted whitespace-nowrap">
-            {filtered.length} of {employees.length} employees
-          </p>
+          <p className="text-xs text-muted whitespace-nowrap">{total} employee{total === 1 ? "" : "s"}</p>
         </div>
 
         {loading ? (
@@ -150,7 +122,7 @@ export default function Dashboard() {
         ) : (
           <>
             <EmployeeTable
-              employees={pageItems}
+              employees={employees}
               selected={selected}
               onToggleSelect={toggleSelect}
               onToggleSelectAll={toggleSelectAll}

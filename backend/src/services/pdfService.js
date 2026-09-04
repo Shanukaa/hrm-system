@@ -189,7 +189,6 @@ export function generateSimplePayslipPdf(employee, res, period) {
   if (bankDetail) {
     doc.font("Helvetica").fillColor(MUTED).text(bankDetail, 40, y + 15, { width: 240 });
   }
-  doc.font("Helvetica").fillColor(MUTED).text("<- - Credited", 400, y + (bankDetail ? 4 : 0), { width: 115 });
 
   doc.end();
 }

@@ -39,6 +39,31 @@ export async function getAllEmployees() {
   return rows.map(normalizeRow);
 }
 
+/**
+ * Server-side paginated + searchable employee list, for the actual "browse
+ * the whole company" list view. Everywhere else that needs every employee
+ * at once (dropdowns, bulk payslip generation, dashboard totals) keeps
+ * using getAllEmployees() above — this is specifically for pages that would
+ * otherwise fetch and render thousands of rows in the browser at once.
+ */
+export async function getEmployeesPaged({ page = 1, pageSize = 20, search = "" } = {}) {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.min(100, Math.max(1, pageSize));
+  const offset = (safePage - 1) * safePageSize;
+
+  const searchClause = search ? `WHERE employeeName LIKE ? OR empNo LIKE ? OR designation LIKE ? OR costCentre LIKE ?` : "";
+  const searchParams = search ? Array(4).fill(`%${search}%`) : [];
+
+  const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM ${TABLE} ${searchClause}`, searchParams);
+  const [rows] = await pool.query(`SELECT * FROM ${TABLE} ${searchClause} ORDER BY empNo LIMIT ? OFFSET ?`, [
+    ...searchParams,
+    safePageSize,
+    offset,
+  ]);
+
+  return { items: rows.map(normalizeRow), total, page: safePage, pageSize: safePageSize };
+}
+
 export async function getEmployeeByEmpNo(empNo) {
   const [rows] = await pool.query(`SELECT * FROM ${TABLE} WHERE \`empNo\` = ? LIMIT 1`, [empNo]);
   return rows[0] ? normalizeRow(rows[0]) : null;

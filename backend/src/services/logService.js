@@ -32,7 +32,7 @@ export async function addLog({ userEmail, userRole, action, details, ip }) {
   }
 }
 
-/** Returns log entries, most recent first, optionally capped to `limit`. */
+/** Returns log entries, most recent first, optionally capped to `limit` (legacy — kept for any other callers). */
 export async function getLogs({ limit } = {}) {
   const lim = limit ? parseInt(limit, 10) : 500;
   const [rows] = await pool.query(`SELECT * FROM ${TABLE} ORDER BY timestamp DESC, id DESC LIMIT ?`, [lim]);
@@ -40,4 +40,32 @@ export async function getLogs({ limit } = {}) {
     ...r,
     timestamp: r.timestamp instanceof Date ? r.timestamp.toISOString() : r.timestamp,
   }));
+}
+
+/**
+ * Server-side paginated + searchable audit log — the log table has no
+ * natural upper bound (it grows with every action, forever), so this is
+ * the one list in the app where client-side "fetch everything and slice"
+ * was never going to hold up.
+ */
+export async function getLogsPaged({ page = 1, pageSize = 20, search = "" } = {}) {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.min(100, Math.max(1, pageSize));
+  const offset = (safePage - 1) * safePageSize;
+
+  const searchClause = search ? `WHERE userEmail LIKE ? OR action LIKE ? OR details LIKE ?` : "";
+  const searchParams = search ? Array(3).fill(`%${search}%`) : [];
+
+  const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM ${TABLE} ${searchClause}`, searchParams);
+  const [rows] = await pool.query(
+    `SELECT * FROM ${TABLE} ${searchClause} ORDER BY timestamp DESC, id DESC LIMIT ? OFFSET ?`,
+    [...searchParams, safePageSize, offset]
+  );
+
+  return {
+    items: rows.map((r) => ({ ...r, timestamp: r.timestamp instanceof Date ? r.timestamp.toISOString() : r.timestamp })),
+    total,
+    page: safePage,
+    pageSize: safePageSize,
+  };
 }

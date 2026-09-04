@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   LEAVE_POLICY,
+  getEffectivePolicy,
+  updateLeavePolicy,
   countLeaveDays,
   getLeaveProfile,
   upsertLeaveProfile,
@@ -8,6 +10,7 @@ import {
   createLeaveRequest,
   getLeaveRequestsForEmployee,
   getAllLeaveRequests,
+  getAllLeaveRequestsPaged,
   getUnseenDecisions,
   markRequestSeen,
   decideLeaveRequest,
@@ -16,6 +19,7 @@ import {
   withdrawLeaveRequest,
 } from "../services/leaveService.js";
 import { getEmployeeByEmpNo } from "../services/employeeService.js";
+import { getHolidayDatesInRange } from "../services/holidayService.js";
 import { addLog } from "../services/logService.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
 
@@ -41,8 +45,32 @@ function resolveEmpNo(req, source) {
   return empNo;
 }
 
-router.get("/policy", (req, res) => {
-  res.json(LEAVE_POLICY);
+router.get("/policy", async (req, res, next) => {
+  try {
+    res.json(await getEffectivePolicy());
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Admin/HR Manager only: change the accrual numbers everyone's leave balance is computed against.
+router.put("/policy", async (req, res, next) => {
+  try {
+    if (!["admin", "hr_manager"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Only an admin or HR manager can change the leave policy" });
+    }
+    const updated = await updateLeavePolicy(req.body, req.user.email);
+    await addLog({
+      userEmail: req.user.email,
+      userRole: req.user.role,
+      action: "leave_policy_updated",
+      details: `Updated leave policy: ${JSON.stringify(updated)}`,
+      ip: req.ip,
+    });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // --- Leave profile (employment type, join date, manager, annual allocation) ---
@@ -93,7 +121,8 @@ router.get("/preview", async (req, res, next) => {
   try {
     const { startDate, endDate } = req.query;
     if (!startDate || !endDate) return res.status(400).json({ error: "startDate and endDate are required" });
-    const days = countLeaveDays(startDate, endDate);
+    const holidayDates = await getHolidayDatesInRange(startDate, endDate);
+    const days = countLeaveDays(startDate, endDate, holidayDates);
     res.json({ days });
   } catch (err) {
     next(err);
@@ -190,6 +219,15 @@ router.post("/requests/:id/ack", requirePermission("leaves", "request"), async (
 // --- Requests: manager / hr_manager / admin review queue ---
 router.get("/requests", requirePermission("leaves", "viewAll"), async (req, res, next) => {
   try {
+    if (req.query.page) {
+      const result = await getAllLeaveRequestsPaged({
+        status: req.query.status,
+        empNos: req.query.empNos !== undefined ? req.query.empNos.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+        page: parseInt(req.query.page, 10) || 1,
+        pageSize: parseInt(req.query.pageSize, 10) || 20,
+      });
+      return res.json(result);
+    }
     const requests = await getAllLeaveRequests({ status: req.query.status });
     res.json(requests);
   } catch (err) {

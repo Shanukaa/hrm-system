@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { getAllLeaveRequests, decideLeaveRequest } from "../api/client.js";
+import { useEffect, useState } from "react";
+import { getAllLeaveRequestsPaged, decideLeaveRequest } from "../api/client.js";
+import { useServerPagination } from "../hooks/useServerPagination.js";
 import Pagination from "./Pagination.jsx";
-import { usePagination } from "../hooks/usePagination.js";
 
 const STATUS_STYLES = {
   pending: "bg-accentSoft text-accent",
@@ -17,46 +17,49 @@ const TABS = [
 
 /** The leave approval queue. `filterEmpNos`, if given, restricts the list to a specific set of employees (e.g. a manager's department). */
 export default function LeaveApprovalQueue({ filterEmpNos }) {
-  const [requests, setRequests] = useState([]);
   const [tab, setTab] = useState("pending");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
   const [capacityPopup, setCapacityPopup] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  async function load() {
-    setLoading(true);
-    setError("");
+  const {
+    items: requests,
+    total,
+    page,
+    setPage,
+    totalPages,
+    pageSize,
+    loading,
+    error,
+    reload,
+  } = useServerPagination(getAllLeaveRequestsPaged, {
+    pageSize: 8,
+    extraParams: { status: tab === "pending" ? "pending" : undefined, empNos: filterEmpNos },
+  });
+
+  async function refreshPendingCount() {
     try {
-      setRequests(await getAllLeaveRequests(tab === "pending" ? "pending" : undefined));
-    } catch (err) {
-      setError(err?.response?.data?.error || "Could not load leave requests.");
-    } finally {
-      setLoading(false);
+      const result = await getAllLeaveRequestsPaged({ status: "pending", page: 1, pageSize: 1, empNos: filterEmpNos });
+      setPendingCount(result.total);
+    } catch {
+      // non-critical — the badge just won't update
     }
   }
 
   useEffect(() => {
-    load();
-    setPage(1);
+    refreshPendingCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
-
-  const visible = useMemo(
-    () => (filterEmpNos ? requests.filter((r) => filterEmpNos.includes(r.empNo)) : requests),
-    [requests, filterEmpNos]
-  );
-  const pendingCount = useMemo(() => visible.filter((r) => r.status === "pending").length, [visible]);
-  const { pageItems, page, setPage, totalPages, total, pageSize } = usePagination(visible, 8);
+  }, [filterEmpNos ? filterEmpNos.join(",") : ""]);
 
   async function handleApprove(id) {
     setBusyId(id);
     try {
       const result = await decideLeaveRequest(id, "approved", "");
       if (result.capacityWarning?.exceeds) setCapacityPopup(result.capacityWarning);
-      load();
+      reload();
+      refreshPendingCount();
     } catch (err) {
       alert(err?.response?.data?.error || "Could not approve this request.");
     } finally {
@@ -71,7 +74,8 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
       await decideLeaveRequest(id, "rejected", rejectNote.trim());
       setRejectingId(null);
       setRejectNote("");
-      load();
+      reload();
+      refreshPendingCount();
     } catch (err) {
       alert(err?.response?.data?.error || "Could not reject this request.");
     } finally {
@@ -100,13 +104,13 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
 
       {loading ? (
         <div className="py-16 text-center text-muted text-sm">Loading leave requests…</div>
-      ) : visible.length === 0 ? (
+      ) : requests.length === 0 ? (
         <div className="py-16 text-center text-muted text-sm">
           {tab === "pending" ? "No pending leave requests." : "No leave requests yet."}
         </div>
       ) : (
         <div className="space-y-3">
-          {pageItems.map((r) => (
+          {requests.map((r) => (
             <div key={r.id} className="bg-surface border border-line rounded-2xl shadow-soft transition-shadow duration-200 hover:shadow-card p-4 sm:p-5">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
@@ -192,7 +196,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
         </div>
       )}
 
-      {!loading && visible.length > 0 && (
+      {!loading && requests.length > 0 && (
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} pageSize={pageSize} />
       )}
 

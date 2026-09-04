@@ -445,3 +445,169 @@ deletion, the department's manager field was cleared, the login account was
 confirmed deactivated (and a login attempt with its password afterward
 correctly failed), and the pending request was confirmed cancelled with an
 explanatory note rather than left stranded in the approval queue.
+
+---
+
+# Round 7 — Scale & operations
+
+## Real server-side pagination
+
+The Employees list (Dashboard), Activity Log, and Leave Approval Queue —
+the three lists with no natural upper bound — now do real database-side
+pagination (`LIMIT`/`OFFSET` with a `COUNT(*)` for the total) instead of
+fetching everything and slicing it in the browser. Search is server-side
+too, debounced on the frontend so it doesn't fire a request per keystroke.
+
+This was done as **opt-in** pagination: call the same endpoints with no
+`?page` param and you still get the full array back, exactly as before.
+Every dropdown/picker elsewhere in the app (Users, Departments, Payslip
+selection, etc.) that needs "every employee at once" keeps working
+completely unchanged — only the three actual browsable list *pages*
+switched over. Smaller, inherently-bounded lists (Users, Departments, "My
+Leave Requests," "My Payslips") deliberately stayed on the simpler
+client-side pagination from Round 4 — there's no benefit to the added
+complexity at that scale.
+
+The one tricky correctness case: a manager's leave-approval queue is scoped
+to their department's employees via an `empNos` filter, applied *before*
+pagination on the server now (previously it filtered client-side after the
+fact, which doesn't work once the server itself decides what a "page" is).
+Verified this handles the edge case of a manager whose department currently
+has zero employees correctly — they see zero requests, not an accidental
+fallback to the whole company's queue.
+
+## Indexes, added through a real migration system
+
+There's now a `schema_migrations` table and a small migration runner
+(`services/migrationService.js`). Unlike the existing per-table
+`ensureXTable()` functions (which handle initial creation and are
+naturally safe to re-run), migrations are for changes — like adding an
+index — that MySQL has no built-in "if not exists" shorthand for. Each
+migration has a fixed id, runs at most once per database ever, and is
+recorded permanently once applied. This round's migration adds the indexes
+that make the new pagination queries above actually fast instead of doing
+a full table scan on every page: `employees.employeeName`,
+`logs.timestamp`, `logs.userEmail`, and a composite `(status, requestedAt)`
+on `leave_requests`. Verified it ran and recorded itself correctly on a
+fresh database.
+
+New schema changes going forward should use this system rather than
+another bare `ALTER TABLE ... try/catch`.
+
+## Structured error logging, with a hook for real monitoring
+
+The central error handler now logs a structured JSON line (method, path,
+status, the user who made the request, and — only for actual 500s — a
+stack trace) instead of a bare `console.error(err)`. This is easy to pipe
+into whatever log aggregator you already use. 500-level responses to the
+client now show a generic "something went wrong" message instead of the
+raw error text, so internal details (a SQL error message, a stack frame)
+never leak to the browser; everything below 500 — validation errors,
+permission errors, and the like — is unaffected and still shows its
+specific, useful message, since every one of those already sets its own
+status code explicitly.
+
+If/when you want real error monitoring (Sentry, Bugsnag, etc.), that
+handler is the one place to wire it in — the hook point is there, just not
+filled in, since it needs an account/DSN from you first.
+
+## Automated tests
+
+`npm test` in `backend/` now runs a real (if intentionally modest) test
+suite — 22 tests using Node's built-in test runner, no new dependency
+needed. Covers the leave policy engine (`countLeaveDays`, `computeStage`
+across every employment stage), password strength validation, the JWT
+duration parser, and the pay-period label parser — the pure,
+business-logic-heavy functions where a regression would be easy to
+introduce and hard to notice by eye. This isn't full integration or E2E
+coverage (that would need a real database in CI), but it's a genuine
+regression net for the trickiest calculations in the app, and a pattern to
+extend as more pure logic gets added.
+
+## Backup & restore
+
+New `BACKUP.md` at the project root: how to back up with `mysqldump`, a
+cron script, how to restore, and — the part that's usually skipped — how to
+actually verify a backup works by restoring it somewhere throwaway. This
+app doesn't (and can't, from inside the app itself) automate backups for
+you; if you're on a managed database host, turning on their built-in
+automated backups is almost always the right call over any of this.
+
+## What's left from the original list
+
+Two items remain: a **configurable leave policy** (the accrual numbers are
+still hardcoded constants in `leaveService.js` rather than admin-editable)
+and a **public holiday calendar** (leave day counting still only excludes
+Sundays). Also still open from the security round: **PII encryption at
+rest** for NIC/bank account numbers, which needs a decision from you on
+where the encryption key lives in production before it's built. Let me know
+which to tackle next.
+
+---
+
+# Round 8 — Configurable leave policy & public holiday calendar
+
+## Leave policy is now admin-configurable, not hardcoded
+
+New **Leave Settings** page (admin/hr_manager, in the sidebar) with a form
+for the five numbers that drive the whole accrual system: probation
+monthly quota, permanent-under-a-year monthly quota, permanent-over-a-year
+fallback quota, the suggested default annual allocation, and the
+qualifying-days threshold. These used to only be changeable by editing
+`leaveService.js` and redeploying; now they're a database-backed setting
+with an in-memory cache (so the hot path — computing every employee's
+balance — doesn't hit the database on every request just to read five
+numbers that change rarely).
+
+Verified end-to-end: changed the probation monthly quota from 4 to 10,
+confirmed an employee's live balance immediately reflected it, restarted
+the backend process entirely, and confirmed the change was still there —
+proving it's a real persisted setting, not just an in-memory value that
+would reset on redeploy. Also confirmed `hr_executive` is correctly blocked
+(403) from changing it — this is an org-wide policy change, not a
+day-to-day HR action.
+
+## Public holiday calendar
+
+New section on the same **Leave Settings** page: add/remove public holidays
+by date and name. Once added, that date no longer counts against anyone's
+leave balance when a request spans it — handled exactly the same way
+Sundays already were. Read access is open to everyone (an employee should
+be able to see why their request came out shorter than they expected);
+adding or removing holidays is admin/hr_manager only.
+
+Verified precisely: created two otherwise-identical 7-day date ranges (each
+containing exactly one Sunday), added a holiday inside only one of them,
+and confirmed a 1-day difference in the day count between the two —
+5 days vs 6 — isolating the holiday's effect exactly. Removed the holiday
+and confirmed the count reverted to 6.
+
+**Caught and fixed a real bug during this verification**: the `/preview`
+endpoint initially crashed with a 500 (a missing import — `routes/leaves.js`
+called a function it never imported from the new holiday service).
+`node --check` doesn't catch this class of bug, since it's a valid-syntax
+runtime reference error, not a parse error — it only surfaced once I
+actually ran the endpoint live. Fixed and re-verified with a clean test run
+afterward. This is the exact reason every round in this project gets a live
+end-to-end test against a real database rather than stopping at a syntax
+check and a build.
+
+## Both changes kept the existing test suite intact
+
+`computeStage` and `countLeaveDays` — the two pure functions the automated
+test suite exercises most — both gained new optional parameters (`policy`
+and `holidayDates` respectively) rather than being restructured, so every
+one of the 22 existing tests kept passing unchanged. Added 3 more
+specifically covering the new behavior (holiday exclusion, and a custom
+policy override), for **25/25 passing**.
+
+## What's left
+
+One item remains from the original drawbacks list: **PII encryption at
+rest** for NIC and bank account numbers. This is intentionally not started
+yet — it needs a decision from you first on where the encryption key lives
+in production (an environment variable is the simplest starting point, but
+isn't a complete key-management story on its own: who can access it, how
+it's rotated if it's ever exposed, and what happens to already-encrypted
+data if it changes). Let me know how you'd like to handle that and I'll
+build it around your answer rather than picking a default myself.

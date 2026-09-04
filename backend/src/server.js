@@ -14,13 +14,16 @@ import dashboardRouter from "./routes/dashboard.js";
 import leavesRouter from "./routes/leaves.js";
 import departmentsRouter from "./routes/departments.js";
 import notificationsRouter from "./routes/notifications.js";
+import holidaysRouter from "./routes/holidays.js";
 import { ensureEmployeesTable } from "./services/employeeService.js";
 import { ensureUsersTable, bootstrapAdminIfNeeded } from "./services/userService.js";
 import { ensureLogsTable } from "./services/logService.js";
-import { ensureLeaveTables } from "./services/leaveService.js";
+import { ensureLeaveTables, ensureLeavePolicyTable } from "./services/leaveService.js";
+import { ensurePublicHolidaysTable } from "./services/holidayService.js";
 import { ensureDepartmentsTable } from "./services/departmentService.js";
 import { ensureAnnouncementsTable } from "./services/announcementService.js";
 import { ensurePayrollSnapshotsTable } from "./services/payrollSnapshotService.js";
+import { runMigrations } from "./services/migrationService.js";
 
 dotenv.config();
 
@@ -45,11 +48,33 @@ app.use("/api/dashboard", dashboardRouter);
 app.use("/api/leaves", leavesRouter);
 app.use("/api/departments", departmentsRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/holidays", holidaysRouter);
 
-// Central error handler
+// Central error handler. Logs a structured line (easy to pipe into any log
+// aggregator — CloudWatch, Datadog, a plain `docker logs`, whatever you
+// use) rather than a bare stack trace, and gives 500s a generic message so
+// internal error details never leak to the client while still being fully
+// visible server-side.
+//
+// To wire up an error-monitoring service (Sentry, Bugsnag, etc.), this is
+// the one place to add it: call your SDK's capture function here before
+// the response is sent. Left as a no-op by default since none is
+// configured, but the hook point already exists.
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ error: err.message || "Internal server error" });
+  const status = err.status || 500;
+  console.error(
+    JSON.stringify({
+      level: "error",
+      timestamp: new Date().toISOString(),
+      status,
+      method: req.method,
+      path: req.originalUrl,
+      userEmail: req.user?.email,
+      message: err.message,
+      stack: status >= 500 ? err.stack : undefined,
+    })
+  );
+  res.status(status).json({ error: status >= 500 ? "Something went wrong on our end. Please try again." : err.message });
 });
 
 async function start() {
@@ -59,8 +84,11 @@ async function start() {
     await ensureLogsTable();
     await ensureDepartmentsTable();
     await ensureLeaveTables();
+    await ensureLeavePolicyTable();
+    await ensurePublicHolidaysTable();
     await ensureAnnouncementsTable();
     await ensurePayrollSnapshotsTable();
+    await runMigrations();
     await bootstrapAdminIfNeeded();
   } catch (err) {
     // Fail fast rather than silently serving a broken app: if the database

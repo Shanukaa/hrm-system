@@ -22,20 +22,11 @@ const loginLimiter = rateLimit({
 
 const isProduction = process.env.NODE_ENV === "production";
 
-// When the frontend and backend are on different domains (e.g. Netlify +
-// Render), the browser treats every XHR/fetch as cross-site and silently
-// drops SameSite=Lax cookies. SameSite=None + Secure is the correct fix;
-// Secure is enforced by the browser for None anyway, and both Netlify and
-// Render serve over HTTPS, so this is safe in production.
-// In local dev (same-origin localhost) we keep Lax so you don't need HTTPS.
-const isCrossOrigin = isProduction && !!process.env.CORS_ORIGIN &&
-  !process.env.CORS_ORIGIN.includes("localhost");
-
 function cookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isCrossOrigin ? "none" : "lax",
+    sameSite: "lax",
     maxAge: parseDurationMs(JWT_EXPIRES_IN),
     path: "/",
   };
@@ -84,12 +75,10 @@ router.post("/login", loginLimiter, async (req, res, next) => {
 
     await addLog({ userEmail: user.email, userRole: user.role, action: "login", details: "", ip: req.ip });
 
-    // Set the httpOnly cookie for browsers that support cross-site cookies
-    // (Chrome/Firefox with SameSite=None). Also include the token in the
-    // response body so Safari/iOS — which blocks third-party cookies via ITP
-    // — can store it and send it as an Authorization header instead.
+    // The token lives only in an httpOnly cookie — never in the JSON body —
+    // so client-side JS (and therefore an XSS bug) can't read it.
     res.cookie("token", token, cookieOptions());
-    res.json({ user: payload, token });
+    res.json({ user: payload });
   } catch (err) {
     next(err);
   }

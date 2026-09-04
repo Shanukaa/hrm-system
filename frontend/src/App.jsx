@@ -13,6 +13,7 @@ import Users from "./pages/Users.jsx";
 import Logs from "./pages/Logs.jsx";
 import LeaveApprovals from "./pages/LeaveApprovals.jsx";
 import Departments from "./pages/Departments.jsx";
+import LeaveSettings from "./pages/LeaveSettings.jsx";
 
 export default function App() {
   return (
@@ -92,6 +93,14 @@ function AppShell() {
             element={
               <ProtectedRoute roles={["admin", "hr_manager"]}>
                 <Departments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leave-settings"
+            element={
+              <ProtectedRoute roles={["admin", "hr_manager"]}>
+                <LeaveSettings />
               </ProtectedRoute>
             }
           />

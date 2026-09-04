@@ -19,6 +19,7 @@ const NAV = [
   { to: "/payslips", label: "Payslips", icon: StubIcon, roles: ["admin", "hr_manager", "hr_executive"] },
   { to: "/departments", label: "Departments", icon: DeptIcon, roles: ["admin", "hr_manager"] },
   { to: "/leaves", label: "Leave Requests", icon: LeafIcon, roles: ["admin", "hr_manager"] },
+  { to: "/leave-settings", label: "Leave Settings", icon: SettingsIcon, roles: ["admin", "hr_manager"] },
   { to: "/users", label: "Users", icon: UsersIcon, roles: ["admin"] },
   { to: "/logs", label: "Activity Log", icon: LogIcon, roles: ["admin", "hr_manager"] },
 ];
@@ -199,6 +200,19 @@ function LogoutIcon() {
         strokeLinejoin="round"
       />
       <path d="M10.5 11l3-3-3-3M13.3 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function SettingsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.3" />
+      <path
+        d="M8 2v1.4M8 12.6V14M14 8h-1.4M3.4 8H2M12.2 3.8l-1 1M4.8 11.2l-1 1M12.2 12.2l-1-1M4.8 4.8l-1-1"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

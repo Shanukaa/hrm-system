@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import { getHolidayDatesInRange } from "./holidayService.js";
 
 const PROFILE_TABLE = "employee_leave_profile";
 const REQUEST_TABLE = "leave_requests";
@@ -28,6 +29,75 @@ export const LEAVE_POLICY = {
   defaultAnnualLeaveDays: 14,
   qualifyingDays: 365, // days of continuous employment before the "over a year" rules apply
 };
+
+const POLICY_TABLE = "leave_policy_settings";
+const POLICY_FIELDS = ["probationMonthly", "permanentUnderYearMonthly", "permanentOverYearMonthly", "defaultAnnualLeaveDays", "qualifyingDays"];
+
+// In-memory cache of the admin-configured policy, so the hot path
+// (computing every employee's balance) doesn't hit the database on every
+// call just to read five numbers that change maybe once a year. Invalidated
+// whenever an admin actually changes the settings.
+let policyCache = null;
+
+export async function ensureLeavePolicyTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${POLICY_TABLE} (
+      id INT PRIMARY KEY DEFAULT 1,
+      probationMonthly DECIMAL(5,1) NOT NULL,
+      permanentUnderYearMonthly DECIMAL(5,1) NOT NULL,
+      permanentOverYearMonthly DECIMAL(5,1) NOT NULL,
+      defaultAnnualLeaveDays DECIMAL(5,1) NOT NULL,
+      qualifyingDays INT NOT NULL,
+      updatedBy VARCHAR(255),
+      updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT single_row CHECK (id = 1)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  // Seed the one row with the built-in defaults, but only the first time —
+  // never overwrite an admin's actual configured values on a later restart.
+  await pool.query(
+    `INSERT IGNORE INTO ${POLICY_TABLE} (id, probationMonthly, permanentUnderYearMonthly, permanentOverYearMonthly, defaultAnnualLeaveDays, qualifyingDays)
+     VALUES (1, ?, ?, ?, ?, ?)`,
+    [LEAVE_POLICY.probationMonthly, LEAVE_POLICY.permanentUnderYearMonthly, LEAVE_POLICY.permanentOverYearMonthly, LEAVE_POLICY.defaultAnnualLeaveDays, LEAVE_POLICY.qualifyingDays]
+  );
+}
+
+/** The policy actually in effect right now — the admin-configured values if any exist, otherwise the built-in defaults. */
+export async function getEffectivePolicy() {
+  if (policyCache) return policyCache;
+  const [rows] = await pool.query(`SELECT * FROM ${POLICY_TABLE} WHERE id = 1 LIMIT 1`);
+  if (!rows[0]) return LEAVE_POLICY; // Table not seeded yet (e.g. mid-migration) — fall back safely.
+  const row = rows[0];
+  policyCache = {
+    probationMonthly: Number(row.probationMonthly),
+    permanentUnderYearMonthly: Number(row.permanentUnderYearMonthly),
+    permanentOverYearMonthly: Number(row.permanentOverYearMonthly),
+    defaultAnnualLeaveDays: Number(row.defaultAnnualLeaveDays),
+    qualifyingDays: Number(row.qualifyingDays),
+  };
+  return policyCache;
+}
+
+export async function updateLeavePolicy(data, updatedBy) {
+  const current = await getEffectivePolicy();
+  const merged = { ...current };
+  for (const field of POLICY_FIELDS) {
+    if (data[field] === undefined) continue;
+    const value = Number(data[field]);
+    if (!Number.isFinite(value) || value < 0) {
+      const err = new Error(`${field} must be a non-negative number`);
+      err.status = 400;
+      throw err;
+    }
+    merged[field] = value;
+  }
+  await pool.query(
+    `UPDATE ${POLICY_TABLE} SET probationMonthly = ?, permanentUnderYearMonthly = ?, permanentOverYearMonthly = ?, defaultAnnualLeaveDays = ?, qualifyingDays = ?, updatedBy = ? WHERE id = 1`,
+    [merged.probationMonthly, merged.permanentUnderYearMonthly, merged.permanentOverYearMonthly, merged.defaultAnnualLeaveDays, merged.qualifyingDays, updatedBy]
+  );
+  policyCache = merged;
+  return merged;
+}
 
 // Which weekday numbers (0=Sun..6=Sat) don't count as a leave day when a
 // request spans a range. Sri Lanka commonly runs a 6-day work week, so only
@@ -99,14 +169,22 @@ function daysBetween(a, b) {
 }
 
 /** Counts leave days in an inclusive date range, skipping non-working weekdays. */
-export function countLeaveDays(startDate, endDate) {
+/**
+ * Counts leave days in an inclusive date range, skipping non-working
+ * weekdays and, if given, any date present in `holidayDates` (a Set of
+ * "YYYY-MM-DD" strings). `holidayDates` defaults to empty so this stays
+ * pure/synchronous for easy testing — real request-creation call sites
+ * fetch the actual public holiday list first and pass it in.
+ */
+export function countLeaveDays(startDate, endDate, holidayDates = new Set()) {
   const start = toDateOnly(startDate);
   const end = toDateOnly(endDate);
   if (!start || !end || end < start) return 0;
   let count = 0;
   const cursor = new Date(start);
   while (cursor <= end) {
-    if (!NON_WORKING_WEEKDAYS.includes(cursor.getUTCDay())) count++;
+    const iso = cursor.toISOString().slice(0, 10);
+    if (!NON_WORKING_WEEKDAYS.includes(cursor.getUTCDay()) && !holidayDates.has(iso)) count++;
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return count;
@@ -205,30 +283,37 @@ export async function upsertLeaveProfile(empNo, data, updatedBy) {
  * Works out which policy "stage" an employee is in as of a given date, and
  * which scheme (monthly quota vs annual pool) currently governs their leave.
  */
-export function computeStage(profile, asOfDate = new Date()) {
+/**
+ * Works out which policy "stage" an employee is in as of a given date, and
+ * which scheme (monthly quota vs annual pool) currently governs their leave.
+ * `policy` defaults to the built-in constants (kept pure/synchronous for
+ * easy unit testing) — computeLeaveBalance below passes in the actual
+ * admin-configured policy for real requests.
+ */
+export function computeStage(profile, asOfDate = new Date(), policy = LEAVE_POLICY) {
   if (!profile || !profile.joinDate) {
     return { stage: "unset", scheme: null, quota: 0, periodStart: null, periodEnd: null, daysSinceJoin: null };
   }
   const join = toDateOnly(profile.joinDate);
   const today = toDateOnly(asOfDate);
   const daysSinceJoin = daysBetween(join, today);
-  const qualifies = daysSinceJoin >= LEAVE_POLICY.qualifyingDays;
+  const qualifies = daysSinceJoin >= policy.qualifyingDays;
 
   if (profile.employmentType === "probation") {
-    return monthlyStage("probation", LEAVE_POLICY.probationMonthly, today, daysSinceJoin);
+    return monthlyStage("probation", policy.probationMonthly, today, daysSinceJoin);
   }
 
   if (!qualifies) {
-    return monthlyStage("permanent_under_year", LEAVE_POLICY.permanentUnderYearMonthly, today, daysSinceJoin);
+    return monthlyStage("permanent_under_year", policy.permanentUnderYearMonthly, today, daysSinceJoin);
   }
 
   if (profile.annualLeaveSet && profile.annualLeaveDays !== null) {
-    // Annual pool renews every 365 days from the join date.
-    const cyclesElapsed = Math.floor(daysSinceJoin / LEAVE_POLICY.qualifyingDays);
+    // Annual pool renews every `qualifyingDays` from the join date.
+    const cyclesElapsed = Math.floor(daysSinceJoin / policy.qualifyingDays);
     const periodStart = new Date(join);
-    periodStart.setUTCDate(periodStart.getUTCDate() + cyclesElapsed * LEAVE_POLICY.qualifyingDays);
+    periodStart.setUTCDate(periodStart.getUTCDate() + cyclesElapsed * policy.qualifyingDays);
     const periodEnd = new Date(periodStart);
-    periodEnd.setUTCDate(periodEnd.getUTCDate() + LEAVE_POLICY.qualifyingDays - 1);
+    periodEnd.setUTCDate(periodEnd.getUTCDate() + policy.qualifyingDays - 1);
     return {
       stage: "permanent_over_year",
       scheme: "annual",
@@ -239,7 +324,7 @@ export function computeStage(profile, asOfDate = new Date()) {
     };
   }
 
-  return monthlyStage("permanent_over_year", LEAVE_POLICY.permanentOverYearMonthly, today, daysSinceJoin);
+  return monthlyStage("permanent_over_year", policy.permanentOverYearMonthly, today, daysSinceJoin);
 }
 
 function monthlyStage(stage, quota, today, daysSinceJoin) {
@@ -281,7 +366,8 @@ async function sumPendingDays(empNo) {
  */
 export async function computeLeaveBalance(empNo, { asOfDate = new Date(), excludeRequestId } = {}) {
   const profile = await getLeaveProfile(empNo);
-  const stageInfo = computeStage(profile, asOfDate);
+  const policy = await getEffectivePolicy();
+  const stageInfo = computeStage(profile, asOfDate, policy);
 
   if (stageInfo.stage === "unset") {
     return {
@@ -316,7 +402,8 @@ export async function computeLeaveBalance(empNo, { asOfDate = new Date(), exclud
 }
 
 export async function createLeaveRequest({ empNo, employeeName, startDate, endDate, reason }) {
-  const days = countLeaveDays(startDate, endDate);
+  const holidayDates = await getHolidayDatesInRange(startDate, endDate);
+  const days = countLeaveDays(startDate, endDate, holidayDates);
   if (days <= 0) {
     const err = new Error("End date must be on or after start date, and cover at least one working day");
     err.status = 400;
@@ -422,6 +509,46 @@ export async function getAllLeaveRequests({ status } = {}) {
     status ? [status] : []
   );
   return rows.map(normalizeRequestRow);
+}
+
+/**
+ * Server-side paginated version of the above, for the actual browsable
+ * approval queue — the unpaginated version above stays in use wherever the
+ * full set is genuinely needed (e.g. counting all-time pending requests for
+ * a manager's dashboard badge).
+ */
+export async function getAllLeaveRequestsPaged({ status, empNos, page = 1, pageSize = 20 } = {}) {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.min(100, Math.max(1, pageSize));
+  const offset = (safePage - 1) * safePageSize;
+
+  // empNos being an explicitly-provided empty array (e.g. a manager whose
+  // department currently has zero employees) must mean "show nothing", not
+  // "no filter was requested" — and MySQL doesn't allow an empty IN (...).
+  if (empNos && empNos.length === 0) {
+    return { items: [], total: 0, page: safePage, pageSize: safePageSize };
+  }
+
+  const clauses = [];
+  const params = [];
+  if (status) {
+    clauses.push("status = ?");
+    params.push(status);
+  }
+  if (empNos && empNos.length > 0) {
+    clauses.push(`empNo IN (${empNos.map(() => "?").join(",")})`);
+    params.push(...empNos);
+  }
+  const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+
+  const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM ${REQUEST_TABLE} ${whereClause}`, params);
+  const [rows] = await pool.query(
+    `SELECT * FROM ${REQUEST_TABLE} ${whereClause} ORDER BY
+       CASE status WHEN 'pending' THEN 0 ELSE 1 END, requestedAt DESC LIMIT ? OFFSET ?`,
+    [...params, safePageSize, offset]
+  );
+
+  return { items: rows.map(normalizeRequestRow), total, page: safePage, pageSize: safePageSize };
 }
 
 export async function getUnseenDecisions(empNo) {
