@@ -82,10 +82,17 @@ router.post("/login", loginLimiter, async (req, res, next) => {
 
     await addLog({ userEmail: user.email, userRole: user.role, action: "login", details: "", ip: req.ip });
 
-    // The token lives only in an httpOnly cookie — never in the JSON body —
-    // so client-side JS (and therefore an XSS bug) can't read it.
+    // The cookie is still set and remains the preferred mechanism — it
+    // works transparently in most browsers. But Safari (iOS in particular)
+    // fully blocks third-party cookies between different root domains
+    // regardless of SameSite/Secure, which a split frontend+backend
+    // deployment runs into. Returning the token here too lets the frontend
+    // fall back to an Authorization header on browsers where the cookie
+    // never gets stored, at the cost of the token being briefly readable
+    // by JS (kept out of localStorage — see AuthContext — to limit how
+    // long it persists if that's ever a concern).
     res.cookie("token", token, cookieOptions());
-    res.json({ user: payload });
+    res.json({ user: payload, token });
   } catch (err) {
     next(err);
   }

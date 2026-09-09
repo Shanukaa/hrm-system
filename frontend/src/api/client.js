@@ -1,12 +1,31 @@
 import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+const TOKEN_KEY = "hrm_token";
 
 // withCredentials so the browser sends/receives the httpOnly session cookie
-// set by the backend on login. The token itself is never touched by JS —
-// it lives only in that cookie — so an XSS bug elsewhere can't read it out
-// of localStorage the way the previous version allowed.
+// set by the backend on login — this is the preferred mechanism and works
+// transparently in most browsers. It's not enough on its own though: Safari
+// (iOS in particular) fully blocks cookies between different root domains
+// regardless of SameSite/Secure, which a split frontend+backend deployment
+// runs into. So we also keep a copy of the token in sessionStorage (cleared
+// when the tab closes — deliberately not localStorage, to limit how long
+// it's readable if an XSS bug is ever introduced) and attach it as a
+// fallback Authorization header on every request. Browsers where the
+// cookie works ignore the extra header; browsers where it doesn't get one
+// anyway.
 const api = axios.create({ baseURL: API_BASE, withCredentials: true });
+
+export function setAuthToken(token) {
+  if (token) sessionStorage.setItem(TOKEN_KEY, token);
+  else sessionStorage.removeItem(TOKEN_KEY);
+}
+
+api.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 // Central 401 handling: if a call ever comes back unauthenticated (expired
 // or missing session), clear the cached user display info and send the
@@ -17,6 +36,7 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem("hrm_user");
+      setAuthToken(null);
       if (!window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }
@@ -26,8 +46,12 @@ api.interceptors.response.use(
 );
 
 // --- Auth ---
-export const login = (email, password) => api.post("/auth/login", { email, password }).then((r) => r.data);
-export const logoutRequest = () => api.post("/auth/logout").catch(() => {});
+export const login = (email, password) =>
+  api.post("/auth/login", { email, password }).then((r) => {
+    setAuthToken(r.data.token);
+    return r.data;
+  });
+export const logoutRequest = () => api.post("/auth/logout").catch(() => {}).finally(() => setAuthToken(null));
 export const getMe = () => api.get("/auth/me").then((r) => r.data);
 
 // --- Users (admin only) ---

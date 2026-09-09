@@ -2,8 +2,9 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { login as loginRequest, logoutRequest, getMe } from "../api/client.js";
 
 // Only a display cache of non-sensitive user info (name/role/etc.) for a
-// fast first paint — never the session token itself, which lives solely in
-// an httpOnly cookie the backend sets and this code never touches.
+// fast first paint. The actual session token lives in an httpOnly cookie
+// (preferred) with a sessionStorage-backed Authorization header as a
+// fallback for browsers that block that cookie — see api/client.js.
 const USER_KEY = "hrm_user";
 
 const AuthContext = createContext(null);

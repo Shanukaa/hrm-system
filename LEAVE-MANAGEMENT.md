@@ -611,3 +611,63 @@ isn't a complete key-management story on its own: who can access it, how
 it's rotated if it's ever exposed, and what happens to already-encrypted
 data if it changes). Let me know how you'd like to handle that and I'll
 build it around your answer rather than picking a default myself.
+
+---
+
+# Round 9 — Login fix: iPhone/Safari couldn't authenticate at all
+
+## Two separate bugs, found in sequence
+
+**Bug 1 (fixed first):** the session cookie was set with `SameSite=Lax`.
+That's invisible to `curl`-based testing (curl doesn't enforce `SameSite`
+at all), but real browsers don't send a `Lax` cookie on cross-origin
+fetch/XHR calls — only on top-level page navigations. Since this app's
+frontend and backend run as separate services, every API call after login
+is exactly that kind of cross-origin request, so the cookie was silently
+dropped on every request after the first. Fixed by switching to
+`Secure; SameSite=None`, the correct combination for a cookie that has to
+survive cross-origin XHR/fetch.
+
+**Bug 2 (the actual iPhone-specific one):** that fix is not sufficient for
+Safari. Since Safari 13.1, iOS/macOS Safari **fully blocks third-party
+cookies by default** — a separate, stricter policy than `SameSite`, and one
+that `SameSite=None; Secure` cannot work around when the frontend and
+backend are on genuinely different root domains (not subdomains of the
+same one). Chrome and Firefox are more permissive here, which is why this
+surfaced as "works on desktop, fails on iPhone."
+
+## The fix: an Authorization-header fallback
+
+The real, most robust fix is putting the frontend and backend on
+subdomains of the same root domain (e.g. `app.yourco.com` +
+`api.yourco.com`), which makes the cookie first-party everywhere, Safari
+included, with no code changes needed. That requires DNS/hosting changes
+on your end, so — as agreed — here's the code-level fix that works
+regardless of domain setup, with a tradeoff spelled out rather than
+applied silently:
+
+- Login now returns the JWT in the response body again, alongside still
+  setting the httpOnly cookie.
+- The frontend stores that token in `sessionStorage` (cleared when the tab
+  closes — deliberately not `localStorage`, to limit how long it persists)
+  and attaches it as an `Authorization: Bearer` header on every request.
+- The backend already checked for a Bearer header as a fallback before the
+  cookie (built in during the original security hardening round, originally
+  just for script/API access) — so no backend authentication logic needed
+  to change, only the login response and the frontend's request handling.
+
+**The tradeoff:** the token is now briefly present in JS-accessible storage
+again, which is exactly what moving to an httpOnly-only cookie was meant to
+close off. This re-opens a narrower version of that exposure — an XSS bug
+elsewhere in the app could read it from `sessionStorage` during that
+session. It's real, and worth revisiting via the same-domain approach above
+if/when that's feasible, rather than treating this as a permanent
+resting state.
+
+## Verified
+
+Simulated exactly what a cookie-blocking Safari does — called `/auth/me`
+and a real protected endpoint (`/api/employees`) with **zero cookies sent
+at all**, only the `Authorization: Bearer` header — and confirmed both
+succeed. Confirmed requests with neither a cookie nor a header are still
+correctly rejected (401). Full test suite still at 25/25.
