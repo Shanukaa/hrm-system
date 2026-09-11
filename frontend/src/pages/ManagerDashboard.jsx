@@ -10,6 +10,7 @@ import AvailabilityCalendar from "../components/AvailabilityCalendar.jsx";
 import MyPayslips from "../components/MyPayslips.jsx";
 import NotificationsPanel from "../components/NotificationsPanel.jsx";
 import LeaveApprovalQueue from "../components/LeaveApprovalQueue.jsx";
+import LeaveSummaryTable from "../components/LeaveSummaryTable.jsx";
 import DepartmentCapacitySettings from "../components/DepartmentCapacitySettings.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import {
@@ -126,6 +127,7 @@ export default function ManagerDashboard() {
   const departmentTab = (
     <div className="space-y-6">
       {department && <DepartmentCapacitySettings department={department} onSaved={setDepartment} />}
+      <LeaveSummaryTable empNos={department ? deptEmpNos : []} />
       <LeaveApprovalQueue filterEmpNos={department ? deptEmpNos : []} />
     </div>
   );

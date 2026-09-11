@@ -184,6 +184,9 @@ export const getAllLeaveRequestsPaged = ({ status, page, pageSize, empNos }) =>
 export const decideLeaveRequest = (id, decision, note) =>
   api.put(`/leaves/requests/${id}/decision`, { decision, note }).then((r) => r.data);
 
+export const getLeaveSummary = (empNos) =>
+  api.get("/leaves/summary", { params: empNos !== undefined ? { empNos: empNos.join(",") } : {} }).then((r) => r.data);
+
 export const checkLeaveCapacity = (startDate, endDate, empNo) =>
   api.get("/leaves/capacity-check", { params: { startDate, endDate, ...(empNo ? { empNo } : {}) } }).then((r) => r.data);
 

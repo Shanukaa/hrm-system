@@ -37,8 +37,12 @@ rather the switchover happen automatically without HR's manual step, or want
 different numbers, everything lives in one place:
 `backend/src/services/leaveService.js`, top of the file, `LEAVE_POLICY`.
 
-**Working-day counting:** a leave request's day count skips Sundays only
-(6-day work week), configurable via `NON_WORKING_WEEKDAYS` in the same file.
+**Leave day counting:** every calendar day in a request counts as a leave
+day — this company works all 7 days, so there's no weekly off day excluded.
+(Configurable via `NON_WORKING_WEEKDAYS` in the same file, if that ever
+changes — e.g. `[0]` for a 6-day week with Sunday off, or `[0, 6]` for a
+standard Mon-Fri week.) Public holidays are still excluded separately — see
+the Round 8 section below.
 
 ## What happens when leave runs out
 
@@ -671,3 +675,104 @@ and a real protected endpoint (`/api/employees`) with **zero cookies sent
 at all**, only the `Authorization: Bearer` header — and confirmed both
 succeed. Confirmed requests with neither a cookie nor a header are still
 correctly rejected (401). Full test suite still at 25/25.
+
+---
+
+# Round 10 — Leave day counting was excluding Sundays; this company works all 7 days
+
+## The report
+
+A 4-day leave request sometimes counted as 3 days and sometimes as 4,
+depending on which dates were picked (e.g. the 20th–23rd came out to 3
+days, the 24th–27th came out to 4).
+
+## Why it happened
+
+This wasn't a calculation error — the system was built with `NON_WORKING_WEEKDAYS
+= [0]`, deliberately excluding Sundays from every leave day count (a
+default assumption of a 6-day work week). Whenever a Sunday happened to
+fall inside the requested range, it silently got subtracted — hence the
+inconsistent-looking results depending on which days of the week a given
+date range landed on.
+
+## The fix
+
+Confirmed this business works all 7 days, so there's no weekly off day to
+exclude at all. `NON_WORKING_WEEKDAYS` is now empty — every calendar day
+in a leave request counts as a leave day, full stop. Public holidays (Round
+8) are unaffected and still excluded separately, since those are actual
+designated non-working days, not a weekly pattern.
+
+Also removed a cosmetic-only weekend shading on the calendar UI
+(`MonthCalendar.jsx`) that visually implied Saturdays/Sundays were
+special — it wasn't tied to any leave calculation, but would have been
+misleading now that every day is treated as a working day.
+
+## Verified
+
+Reproduced the exact scenario reported — a 4-day range containing a Sunday
+(Aug 20–23, 2026) and one that doesn't (Aug 24–27) — and confirmed both now
+return 4 days. Updated the two existing automated tests that had encoded
+the old Sunday-exclusion assumption; full suite still passing (25/25) with
+the corrected expectations.
+
+If this ever needs to change again — say, a future 6-day-week policy — the
+one line to edit is `NON_WORKING_WEEKDAYS` in `leaveService.js`, documented
+inline with examples.
+
+---
+
+# Round 11 — Auto no-pay calculation, over-limit visibility, and leave summaries
+
+## No-pay amount now auto-calculates onto the payslip
+
+Previously, approving a leave request that exceeded someone's balance
+calculated the no-pay *days* but never converted that into a rupee amount
+on the payroll record — HR had to do that math and type it in manually.
+
+Now, when a request is approved with no-pay days on it, the system
+automatically:
+1. Calculates the deduction as **Basic Salary ÷ actual calendar days in
+   that month × no-pay days** (the agreed formula — so a 30-day month and
+   a 31-day month give slightly different daily rates, as they should).
+2. Adds that amount to the employee's `nopayAmount` payroll field —
+   **adds**, not overwrites, so it won't clobber a separate manual no-pay
+   entry HR already made that month.
+3. Recalculates their full payroll (adjusted basic, gross, net — everything
+   downstream of `nopayAmount`) immediately.
+4. Shows the approver a confirmation popup with the exact amount and new
+   total, and logs it to the activity log for audit.
+
+Verified end-to-end: an employee on Rs. 60,000 basic salary took leave
+exceeding their balance by 4 days in a 30-day month. The system correctly
+calculated Rs. 2,000/day → Rs. 8,000 deduction, and the employee's
+`adjustedBasic`, and `netSalary` all updated to reflect it immediately.
+
+**One thing worth knowing**: `nopayAmount` is a single running value on the
+employee record, not scoped to a specific pay period on its own — it's what
+gets locked into a payslip snapshot (Round 5) the first time that month's
+payslip is generated. This auto-calculation adds to whatever's currently
+there. HR still needs to reset it before starting a new pay cycle, exactly
+as they already do today for other manually-managed payroll fields — this
+didn't change that part of the workflow, it just removes the manual
+math for leave-caused no-pay specifically.
+
+## Leave Summary: visibility into who's over their limit, and by how much
+
+New **Leave Summary** view — a tab on the HR Manager/Admin "Leave Requests"
+page, and a section on a Manager's "Department" tab (scoped to just their
+team). For every employee: their scheme (monthly/annual), what they've used
+this month, what they've used year-to-date, what they're entitled to, and
+what's left — with anyone at or below zero remaining clearly flagged "Over
+limit" in red, plus a running count at the top ("N over their limit").
+
+This closes both gaps from the original question: no-pay math is now
+automatic, and there's a real, scoped-by-role report instead of having to
+notice an over-limit employee reactively in the approval queue.
+
+Verified: an employee with a 6-day monthly quota who'd used all 6 (matching
+the no-pay example above) correctly showed `remaining: 0` and "Over limit."
+An employee with no leave profile set up showed a clear "not set up yet"
+row instead of broken numbers. Department-scoped filtering (for the manager
+view) correctly handles the zero-employee edge case the same way the
+approval queue already did.

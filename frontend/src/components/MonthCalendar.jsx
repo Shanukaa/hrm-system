@@ -110,7 +110,6 @@ export default function MonthCalendar({ year, month, onChange, renderDay, legend
         {cells.map((cell, i) => {
           const iso = isoFor(cell);
           const isToday = iso === todayIso;
-          const isWeekend = new Date(iso + "T00:00:00Z").getUTCDay() % 6 === 0;
 
           return (
             <button
@@ -122,8 +121,6 @@ export default function MonthCalendar({ year, month, onChange, renderDay, legend
                   ? "border-transparent bg-transparent opacity-40"
                   : isToday
                   ? "border-accent bg-accentSoft shadow-glow"
-                  : isWeekend
-                  ? "border-line/70 bg-paper/60 hover:border-accent/30 hover:shadow-soft"
                   : "border-line bg-surface hover:border-accent/30 hover:shadow-soft"
               } ${cell.inMonth && onSelectDay ? "cursor-pointer" : "cursor-default"}`}
             >

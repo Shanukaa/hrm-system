@@ -22,6 +22,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectNote, setRejectNote] = useState("");
   const [capacityPopup, setCapacityPopup] = useState(null);
+  const [noPayPopup, setNoPayPopup] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
 
   const {
@@ -58,6 +59,7 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
     try {
       const result = await decideLeaveRequest(id, "approved", "");
       if (result.capacityWarning?.exceeds) setCapacityPopup(result.capacityWarning);
+      if (result.noPayApplied) setNoPayPopup({ empNo: result.empNo, employeeName: result.employeeName, ...result.noPayApplied });
       reload();
       refreshPendingCount();
     } catch (err) {
@@ -210,6 +212,26 @@ export default function LeaveApprovalQueue({ filterEmpNos }) {
             </p>
             <button
               onClick={() => setCapacityPopup(null)}
+              className="w-full text-sm font-medium px-4 py-2 rounded-xl bg-ink text-white shadow-soft hover:bg-ink/90 hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {noPayPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-surface rounded-lg max-w-sm w-full p-5 space-y-3">
+            <h4 className="font-display text-base text-ink">No-pay deduction added to payroll</h4>
+            <p className="text-sm text-muted">
+              {noPayPopup.employeeName || noPayPopup.empNo} had days beyond their leave balance on this request. Rs.{" "}
+              {noPayPopup.deduction.toLocaleString()} (at Rs. {noPayPopup.dailyRate.toLocaleString()}/day) has been
+              automatically added to their no-pay amount — new total: Rs. {noPayPopup.newNopayAmount.toLocaleString()}.
+              This carries forward on their payroll record until reset for the next pay cycle.
+            </p>
+            <button
+              onClick={() => setNoPayPopup(null)}
               className="w-full text-sm font-medium px-4 py-2 rounded-xl bg-ink text-white shadow-soft hover:bg-ink/90 hover:shadow-card hover:-translate-y-0.5 transition-all duration-200"
             >
               Got it

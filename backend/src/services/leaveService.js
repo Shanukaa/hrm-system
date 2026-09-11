@@ -100,10 +100,12 @@ export async function updateLeavePolicy(data, updatedBy) {
 }
 
 // Which weekday numbers (0=Sun..6=Sat) don't count as a leave day when a
-// request spans a range. Sri Lanka commonly runs a 6-day work week, so only
-// Sunday is excluded by default — change this array if your company works
-// Mon-Fri instead (e.g. [0, 6]).
-const NON_WORKING_WEEKDAYS = [0];
+// request spans a range. Empty here because this company works all 7
+// days — every calendar day in a leave request counts as a leave day.
+// Public holidays (see holidayService.js) are still excluded separately.
+// If that ever changes, list the non-working weekdays here, e.g. [0] for
+// a 6-day week (Sunday off) or [0, 6] for a standard Mon-Fri week.
+const NON_WORKING_WEEKDAYS = [];
 
 export async function ensureLeaveTables() {
   await pool.query(`
@@ -725,4 +727,75 @@ export async function getRecentAndUpcomingBirthdays() {
     })
     .filter((r) => r.diffDays === 0 || r.diffDays === 1)
     .map((r) => ({ empNo: r.empNo, employeeName: r.employeeName, date: r.thisYear, isToday: r.diffDays === 0 }));
+}
+
+/**
+ * Per-employee leave overview for HR Manager / Manager dashboards: how much
+ * they're entitled to, how much they've used this month and year-to-date,
+ * and how much they have left — with a flag for anyone currently over
+ * their limit. `empNos`, if given, scopes this to a specific set of
+ * employees (a manager's department); omit it for the org-wide view.
+ */
+export async function getLeaveSummary({ empNos } = {}) {
+  let employees;
+  if (empNos) {
+    if (empNos.length === 0) return [];
+    const [rows] = await pool.query(`SELECT empNo, employeeName FROM employees WHERE empNo IN (${empNos.map(() => "?").join(",")}) ORDER BY employeeName`, empNos);
+    employees = rows;
+  } else {
+    const [rows] = await pool.query(`SELECT empNo, employeeName FROM employees ORDER BY employeeName`);
+    employees = rows;
+  }
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString().slice(0, 10);
+  const monthEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0)).toISOString().slice(0, 10);
+
+  const summary = [];
+  for (const emp of employees) {
+    const profile = await getLeaveProfile(emp.empNo);
+    const balance = await computeLeaveBalance(emp.empNo);
+
+    if (balance.needsSetup) {
+      summary.push({
+        empNo: emp.empNo,
+        employeeName: emp.employeeName,
+        departmentId: profile?.departmentId ?? null,
+        needsSetup: true,
+      });
+      continue;
+    }
+
+    const [[{ thisMonthUsed }]] = await pool.query(
+      `SELECT COALESCE(SUM(paidDays), 0) AS thisMonthUsed FROM ${REQUEST_TABLE}
+       WHERE empNo = ? AND status = 'approved' AND startDate <= ? AND endDate >= ?`,
+      [emp.empNo, monthEnd, monthStart]
+    );
+    const [[{ yearToDateUsed }]] = await pool.query(
+      `SELECT COALESCE(SUM(paidDays), 0) AS yearToDateUsed FROM ${REQUEST_TABLE}
+       WHERE empNo = ? AND status = 'approved' AND startDate BETWEEN ? AND ?`,
+      [emp.empNo, yearStart, yearEnd]
+    );
+
+    summary.push({
+      empNo: emp.empNo,
+      employeeName: emp.employeeName,
+      departmentId: profile?.departmentId ?? null,
+      needsSetup: false,
+      scheme: balance.scheme,
+      stage: balance.stage,
+      quota: balance.quota,
+      thisMonthUsed: Number(thisMonthUsed),
+      yearToDateUsed: Number(yearToDateUsed),
+      remaining: balance.remaining,
+      pendingDays: balance.pendingDays,
+      periodStart: balance.periodStart,
+      periodEnd: balance.periodEnd,
+      overLimit: balance.remaining <= 0,
+    });
+  }
+  return summary;
 }

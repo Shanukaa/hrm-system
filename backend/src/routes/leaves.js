@@ -11,6 +11,7 @@ import {
   getLeaveRequestsForEmployee,
   getAllLeaveRequests,
   getAllLeaveRequestsPaged,
+  getLeaveSummary,
   getUnseenDecisions,
   markRequestSeen,
   decideLeaveRequest,
@@ -18,7 +19,8 @@ import {
   getAvailabilityCalendar,
   withdrawLeaveRequest,
 } from "../services/leaveService.js";
-import { getEmployeeByEmpNo } from "../services/employeeService.js";
+import { getEmployeeByEmpNo, updateEmployee } from "../services/employeeService.js";
+import { calculatePayroll } from "../services/payrollCalc.js";
 import { getHolidayDatesInRange } from "../services/holidayService.js";
 import { addLog } from "../services/logService.js";
 import { requireAuth, requirePermission } from "../middleware/auth.js";
@@ -253,15 +255,47 @@ router.put("/requests/:id/decision", requirePermission("leaves", "approve"), asy
     });
 
     let capacityWarning = null;
+    let noPayApplied = null;
     if (decision === "approved") {
       const profile = await getLeaveProfile(updated.empNo);
       if (profile?.departmentId) {
         capacityWarning = await checkDepartmentCapacity(profile.departmentId, updated.startDate, updated.endDate);
         if (!capacityWarning.exceeds) capacityWarning = null;
       }
+
+      // Any days beyond the employee's balance are unpaid — automatically
+      // add that deduction to their payroll record rather than leaving HR
+      // to calculate and type it in by hand. Rate = Basic Salary ÷ actual
+      // calendar days in the request's month (this company's agreed
+      // formula). If a request happens to straddle two months, the whole
+      // thing uses the start date's month — a deliberate simplification
+      // for the (rare) case a leave request spans a month boundary.
+      if (updated.noPayDays > 0) {
+        const employee = await getEmployeeByEmpNo(updated.empNo);
+        if (employee) {
+          const [y, m] = updated.startDate.split("-").map(Number);
+          const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+          const dailyRate = (Number(employee.basicSalary) || 0) / daysInMonth;
+          const deduction = Math.round(dailyRate * updated.noPayDays * 100) / 100;
+          const newNopayAmount = Math.round(((Number(employee.nopayAmount) || 0) + deduction) * 100) / 100;
+
+          const recalculated = calculatePayroll({ ...employee, nopayAmount: newNopayAmount });
+          await updateEmployee(updated.empNo, recalculated);
+
+          await addLog({
+            userEmail: req.user.email,
+            userRole: req.user.role,
+            action: "payroll_nopay_auto_added",
+            details: `Added Rs. ${deduction} no-pay (${updated.noPayDays} day(s) from leave request #${updated.id}) to ${updated.empNo}'s payroll — new total no-pay amount: Rs. ${newNopayAmount}. This carries forward until reset for the next pay cycle.`,
+            ip: req.ip,
+          });
+
+          noPayApplied = { deduction, newNopayAmount, dailyRate: Math.round(dailyRate * 100) / 100 };
+        }
+      }
     }
 
-    res.json({ ...updated, capacityWarning });
+    res.json({ ...updated, capacityWarning, noPayApplied });
   } catch (err) {
     next(err);
   }
@@ -291,6 +325,20 @@ router.get("/availability", requirePermission("leaves", "viewAll"), async (req, 
       month: Number(month),
     });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Per-employee leave overview for HR Manager / Manager dashboards: quota,
+// used this month, used year-to-date, remaining, and an over-limit flag.
+// Pass ?empNos=A,B,C to scope it (a manager's department); omit for the
+// org-wide view.
+router.get("/summary", requirePermission("leaves", "viewAll"), async (req, res, next) => {
+  try {
+    const empNos = req.query.empNos !== undefined ? req.query.empNos.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+    const summary = await getLeaveSummary({ empNos });
+    res.json(summary);
   } catch (err) {
     next(err);
   }

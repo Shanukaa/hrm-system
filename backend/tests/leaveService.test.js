@@ -3,14 +3,13 @@ import assert from "node:assert/strict";
 import { countLeaveDays, computeStage, LEAVE_POLICY } from "../src/services/leaveService.js";
 
 describe("countLeaveDays", () => {
-  test("counts a single weekday as 1 day", () => {
-    // 2026-08-17 is a Monday
+  test("counts a single day as 1 day", () => {
     assert.equal(countLeaveDays("2026-08-17", "2026-08-17"), 1);
   });
 
-  test("excludes Sundays from a range", () => {
-    // 2026-08-17 (Mon) to 2026-08-23 (Sun) = 7 calendar days, 1 Sunday excluded
-    assert.equal(countLeaveDays("2026-08-17", "2026-08-23"), 6);
+  test("counts every calendar day in a range, including Sundays — this company works all 7 days", () => {
+    // 2026-08-17 (Mon) to 2026-08-23 (Sun) = 7 calendar days, none excluded
+    assert.equal(countLeaveDays("2026-08-17", "2026-08-23"), 7);
   });
 
   test("returns 0 when the end date is before the start date", () => {
@@ -22,13 +21,13 @@ describe("countLeaveDays", () => {
     assert.equal(countLeaveDays("2026-08-17", null), 0);
   });
 
-  test("also excludes any date present in the given holiday set", () => {
+  test("still excludes any date present in the given holiday set", () => {
     // Mon 2026-08-17 to Wed 2026-08-19, with Tuesday as a public holiday
     const holidays = new Set(["2026-08-18"]);
     assert.equal(countLeaveDays("2026-08-17", "2026-08-19", holidays), 2);
   });
 
-  test("with no holiday set given, behaves exactly as before (backward compatible)", () => {
+  test("with no holiday set given, counts the full range with no exclusions", () => {
     assert.equal(countLeaveDays("2026-08-17", "2026-08-19"), 3);
   });
 });
